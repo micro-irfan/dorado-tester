@@ -1,0 +1,7 @@
+# Maximal non-conflicting mod sets per analyte (one model per canonical base).
+# Cross-checked at runtime against `dorado download --list` for the target
+# version; any mod not offered by that version is dropped from the run.
+dna:
+  compatible_mods: ["5mCG_5hmCG", "6mA"]
+rna:
+  compatible_mods: ["m6A", "pseU"]
