@@ -1,0 +1,103 @@
+{
+  "dorado_path": "/data/irfan/software/dorado-2.0.1-linux-x64/bin/dorado",
+  "dorado_version": "2.0.1+bf630305",
+  "dorado_version_safe": "2.0.1+bf630305",
+  "cases": [
+    {
+      "analyte": "DNA",
+      "library": "multiplex",
+      "test_name": "dna_multiplex_simplex_hac",
+      "model": "hac",
+      "mods": [],
+      "output_dir": "results/2.0.1+bf630305/dna/multiplex/simplex_hac",
+      "status": "success",
+      "error_message": null,
+      "wall_time_sec": 1070.5361254550517,
+      "commands_executed": [
+        "/data/irfan/software/dorado-2.0.1-linux-x64/bin/dorado basecaller hac /data/irfan/pod5/dna/multiplex -o results/2.0.1+bf630305/dna/multiplex/simplex_hac -x auto"
+      ],
+      "log_path": "results/2.0.1+bf630305/logs/dna_multiplex_simplex_hac.log"
+    },
+    {
+      "analyte": "DNA",
+      "library": "multiplex",
+      "test_name": "dna_multiplex_hac_mods",
+      "model": "hac,5mCG_5hmCG,6mA",
+      "mods": [
+        "5mCG_5hmCG",
+        "6mA"
+      ],
+      "output_dir": "results/2.0.1+bf630305/dna/multiplex/hac_mods",
+      "status": "success",
+      "error_message": null,
+      "wall_time_sec": 1409.3174070324749,
+      "commands_executed": [
+        "/data/irfan/software/dorado-2.0.1-linux-x64/bin/dorado basecaller hac,5mCG_5hmCG,6mA /data/irfan/pod5/dna/multiplex -o results/2.0.1+bf630305/dna/multiplex/hac_mods -x auto"
+      ],
+      "log_path": "results/2.0.1+bf630305/logs/dna_multiplex_hac_mods.log"
+    },
+    {
+      "analyte": "DNA",
+      "library": "multiplex",
+      "test_name": "dna_multiplex_barcode_kit",
+      "model": "hac",
+      "mods": [],
+      "output_dir": "results/2.0.1+bf630305/dna/multiplex/barcode_kit",
+      "status": "failed",
+      "error_message": "No calls_*.bam found in results/2.0.1+bf630305/dna/multiplex/barcode_kit for demux step",
+      "wall_time_sec": 1087.661082596518,
+      "commands_executed": [
+        "/data/irfan/software/dorado-2.0.1-linux-x64/bin/dorado basecaller hac /data/irfan/pod5/dna/multiplex -o results/2.0.1+bf630305/dna/multiplex/barcode_kit --kit-name SQK-NBD114-24 --no-trim -x auto"
+      ],
+      "log_path": "results/2.0.1+bf630305/logs/dna_multiplex_barcode_kit.log"
+    },
+    {
+      "analyte": "DNA",
+      "library": "singleplex",
+      "test_name": "dna_singleplex_simplex_hac",
+      "model": "hac",
+      "mods": [],
+      "output_dir": "results/2.0.1+bf630305/dna/singleplex/simplex_hac",
+      "status": "success",
+      "error_message": null,
+      "wall_time_sec": 1551.5031728791073,
+      "commands_executed": [
+        "/data/irfan/software/dorado-2.0.1-linux-x64/bin/dorado basecaller hac /data/irfan/pod5/dna/singleplex -o results/2.0.1+bf630305/dna/singleplex/simplex_hac -x auto"
+      ],
+      "log_path": "results/2.0.1+bf630305/logs/dna_singleplex_simplex_hac.log"
+    },
+    {
+      "analyte": "DNA",
+      "library": "singleplex",
+      "test_name": "dna_singleplex_hac_mods",
+      "model": "hac,5mCG_5hmCG,6mA",
+      "mods": [
+        "5mCG_5hmCG",
+        "6mA"
+      ],
+      "output_dir": "results/2.0.1+bf630305/dna/singleplex/hac_mods",
+      "status": "success",
+      "error_message": null,
+      "wall_time_sec": 2028.410242723301,
+      "commands_executed": [
+        "/data/irfan/software/dorado-2.0.1-linux-x64/bin/dorado basecaller hac,5mCG_5hmCG,6mA /data/irfan/pod5/dna/singleplex -o results/2.0.1+bf630305/dna/singleplex/hac_mods -x auto"
+      ],
+      "log_path": "results/2.0.1+bf630305/logs/dna_singleplex_hac_mods.log"
+    },
+    {
+      "analyte": "DNA",
+      "library": "singleplex",
+      "test_name": "dna_singleplex_no_trim",
+      "model": "hac",
+      "mods": [],
+      "output_dir": "results/2.0.1+bf630305/dna/singleplex/no_trim",
+      "status": "success",
+      "error_message": null,
+      "wall_time_sec": 1555.0377847617492,
+      "commands_executed": [
+        "/data/irfan/software/dorado-2.0.1-linux-x64/bin/dorado basecaller hac /data/irfan/pod5/dna/singleplex -o results/2.0.1+bf630305/dna/singleplex/no_trim --no-trim -x auto"
+      ],
+      "log_path": "results/2.0.1+bf630305/logs/dna_singleplex_no_trim.log"
+    }
+  ]
+}

@@ -73,5 +73,9 @@ def summary_command(dorado_path: str, bam_path: str) -> list[str]:
     return [dorado_path, "summary", bam_path]
 
 
-def find_calls_bams(output_dir: Path) -> list[Path]:
-    return sorted(output_dir.glob("calls_*.bam"))
+def find_output_bams(output_dir: Path) -> list[Path]:
+    """`dorado basecaller -o <dir>` does not write a flat calls_<timestamp>.bam;
+    verified against v2.0.1, it mirrors the source POD5 tree (e.g.
+    <dir>/<experiment_id>/<sample_id>/<run_id>/bam_pass/<flowcell>_pass_*.bam),
+    with filenames that aren't predictable. Search recursively instead."""
+    return sorted(output_dir.rglob("*.bam"))

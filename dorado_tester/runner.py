@@ -11,9 +11,15 @@ from typing import Callable
 import yaml
 
 from . import dorado_commands
+from .log import get_logger
 from .version import DoradoVersion
 
 CommandBuilder = Callable[[Path], list[str]]
+logger = get_logger()
+
+# Built into the matrix (so --list_tests/--only/--add_tests can still see and
+# select them), but skipped from a default (no --only) run.
+DEFAULT_EXCLUDED_TESTS = frozenset({"dna_singleplex_no_trim", "dna_multiplex_barcode_kit_mods"})
 
 
 @dataclass
@@ -25,6 +31,10 @@ class TestCase:
     command_builders: list[CommandBuilder]
     model: str | None = None
     mods: list[str] = field(default_factory=list)
+    # Dynamically-generated cases (e.g. extra --rna_mod combos) that should be
+    # excluded from a default run, same as DEFAULT_EXCLUDED_TESTS, but can't be
+    # listed there statically since their test_name depends on CLI input.
+    default_excluded: bool = False
 
 
 @dataclass
@@ -93,40 +103,59 @@ def _basecaller_builder(
     return _build
 
 
-def _demux_builder(dorado_path: str, basecall_out_dir: Path) -> CommandBuilder:
+def _demux_builder(
+    dorado_path: str, basecall_out_dir: Path, kit_name: str, *, no_classify: bool,
+) -> CommandBuilder:
+    """no_classify=False: basecalling didn't classify inline, so demux does
+    the classification (needs the barcode sequence intact, i.e. basecalling
+    must have used --no-trim). no_classify=True: basecalling already
+    classified (and, since --no-trim wasn't used, already trimmed) inline,
+    so demux only needs to split by the existing BC tag -- re-classifying
+    here would fail since the barcode sequence is already gone."""
     def _build(_out_dir: Path) -> list[str]:
-        bam_files = dorado_commands.find_calls_bams(basecall_out_dir)
+        demux_dir = basecall_out_dir / "demux"
+        # Recursive, so on a rerun this must exclude demux/'s own prior output.
+        bam_files = [
+            b for b in dorado_commands.find_output_bams(basecall_out_dir)
+            if demux_dir not in b.parents
+        ]
         if not bam_files:
             raise FileNotFoundError(
-                f"No calls_*.bam found in {basecall_out_dir} for demux step"
+                f"No basecaller output *.bam found under {basecall_out_dir} for demux step"
             )
-        demux_dir = basecall_out_dir / "demux"
         return dorado_commands.demux_command(
-            dorado_path, str(demux_dir), [str(b) for b in bam_files]
+            dorado_path, str(demux_dir), [str(b) for b in bam_files],
+            no_classify=no_classify, kit_name=None if no_classify else kit_name,
         )
 
     return _build
 
 
-def resolve_model_variants(ignore_sup: bool, test_fast: bool) -> list[str]:
-    if test_fast:
+def resolve_model_variants(ignore: set[str]) -> list[str]:
+    if "hac" in ignore and "sup" in ignore:
         return ["fast"]
-    if ignore_sup:
+    if "sup" in ignore:
         return ["hac"]
+    if "hac" in ignore:
+        return ["sup"]
     return ["hac", "sup"]
 
 
-def resolve_primary_variant(ignore_sup: bool, test_fast: bool) -> str:
-    if test_fast:
+def resolve_primary_variant(ignore: set[str]) -> str:
+    if "hac" in ignore and "sup" in ignore:
         return "fast"
-    if ignore_sup:
+    if "sup" in ignore:
         return "hac"
     return "sup"
 
 
+def _mods_slug(mods: list[str]) -> str:
+    return "+".join(mods)
+
+
 def build_test_matrix(
     dorado_path: str,
-    dna_pod5_dir: Path,
+    dna_pod5_dir: Path | None,
     rna_pod5_dir: Path | None,
     dna_kit: str,
     rna_kit: str,
@@ -137,14 +166,22 @@ def build_test_matrix(
     rna_mods: list[str],
     dna_libraries: set[str],
     rna_libraries: set[str],
-    ignore_sup: bool = False,
-    test_fast: bool = False,
+    ignore: set[str] = frozenset(),
+    rna_mod_extra_groups: list[list[str]] = (),
 ) -> list[TestCase]:
     cases: list[TestCase] = []
-    variants = resolve_model_variants(ignore_sup, test_fast)
-    primary_variant = resolve_primary_variant(ignore_sup, test_fast)
+    variants = resolve_model_variants(ignore)
+    primary_variant = resolve_primary_variant(ignore)
 
-    def _add_core_cases(analyte: str, library: str, lib_dir: Path, base_out: Path, mods: list[str]) -> None:
+    def _add_core_cases(
+        analyte: str, library: str, lib_dir: Path, base_out: Path, mods: list[str],
+        kit_name: str | None = None, extra_mod_groups: list[list[str]] = (),
+    ) -> None:
+        # kit_name (multiplex only): classify inline during basecalling.
+        # Verified (v2.0.1): this alone already splits output into per-barcode
+        # bam_pass/<barcode>/*.bam files -- no separate demux step needed (and
+        # a redundant one fails: demux's positional argument is a single
+        # input path, not a list of already-per-barcode bam files).
         for variant in variants:
             variant_out = base_out / f"simplex_{variant}"
             cases.append(TestCase(
@@ -152,6 +189,7 @@ def build_test_matrix(
                 output_dir=variant_out,
                 command_builders=[_basecaller_builder(
                     dorado_path, variant, lib_dir, variant_out,
+                    kit_name=kit_name,
                     models_directory=models_directory, device=device,
                 )],
                 model=variant,
@@ -165,48 +203,92 @@ def build_test_matrix(
                     output_dir=mods_out,
                     command_builders=[_basecaller_builder(
                         dorado_path, model_with_mods, lib_dir, mods_out,
+                        kit_name=kit_name,
                         models_directory=models_directory, device=device,
                     )],
-                    model=model_with_mods, mods=mods,
+                    model=variant, mods=mods,
                 ))
 
-    for library in [l for l in ("multiplex", "singleplex") if l in dna_libraries]:
-        lib_dir = dna_pod5_dir / library
-        base_out = output_root / "dna" / library
-        _add_core_cases("DNA", library, lib_dir, base_out, dna_mods)
-
-        if library == "multiplex":
-            barcode_out = base_out / "barcode_kit"
-            cases.append(TestCase(
-                analyte="DNA", library=library, test_name="dna_multiplex_barcode_kit",
-                output_dir=barcode_out,
-                command_builders=[
-                    _basecaller_builder(
-                        dorado_path, primary_variant, lib_dir, barcode_out,
-                        kit_name=dna_kit, no_trim=True,
+            # Extra combos from --rna_mod: always suffixed by mod combo (so
+            # they never collide with the plain case above), and always
+            # excluded from a default run -- opt in via --only/--add_tests.
+            for extra_mods in extra_mod_groups:
+                if not extra_mods:
+                    continue
+                model_with_mods = dorado_commands.build_model_with_mods(variant, extra_mods)
+                slug = _mods_slug(extra_mods)
+                mods_out = base_out / f"{variant}_mods_{slug}"
+                cases.append(TestCase(
+                    analyte=analyte, library=library,
+                    test_name=f"{analyte.lower()}_{library}_{variant}_mods_{slug}",
+                    output_dir=mods_out,
+                    command_builders=[_basecaller_builder(
+                        dorado_path, model_with_mods, lib_dir, mods_out,
+                        kit_name=kit_name,
                         models_directory=models_directory, device=device,
-                    ),
-                    _demux_builder(dorado_path, barcode_out),
-                ],
-                model=primary_variant,
-            ))
-        else:
-            no_trim_out = base_out / "no_trim"
-            cases.append(TestCase(
-                analyte="DNA", library=library, test_name="dna_singleplex_no_trim",
-                output_dir=no_trim_out,
-                command_builders=[_basecaller_builder(
-                    dorado_path, primary_variant, lib_dir, no_trim_out, no_trim=True,
-                    models_directory=models_directory, device=device,
-                )],
-                model=primary_variant,
-            ))
+                    )],
+                    model=variant, mods=extra_mods,
+                    default_excluded=True,
+                ))
+
+    if dna_pod5_dir is not None:
+        for library in [l for l in ("multiplex", "singleplex") if l in dna_libraries]:
+            lib_dir = dna_pod5_dir / library
+            base_out = output_root / "dna" / library
+            _add_core_cases(
+                "DNA", library, lib_dir, base_out, dna_mods,
+                kit_name=dna_kit if library == "multiplex" else None,
+            )
+
+            if library == "multiplex":
+                barcode_out = base_out / "barcode_kit"
+                cases.append(TestCase(
+                    analyte="DNA", library=library, test_name="dna_multiplex_barcode_kit",
+                    output_dir=barcode_out,
+                    command_builders=[
+                        _basecaller_builder(
+                            dorado_path, primary_variant, lib_dir, barcode_out,
+                            no_trim=True,
+                            models_directory=models_directory, device=device,
+                        ),
+                        _demux_builder(dorado_path, barcode_out, dna_kit, no_classify=False),
+                    ],
+                    model=primary_variant,
+                ))
+
+                if dna_mods:
+                    barcode_model_with_mods = dorado_commands.build_model_with_mods(primary_variant, dna_mods)
+                    barcode_mods_out = base_out / "barcode_kit_mods"
+                    cases.append(TestCase(
+                        analyte="DNA", library=library, test_name="dna_multiplex_barcode_kit_mods",
+                        output_dir=barcode_mods_out,
+                        command_builders=[
+                            _basecaller_builder(
+                                dorado_path, barcode_model_with_mods, lib_dir, barcode_mods_out,
+                                no_trim=True,
+                                models_directory=models_directory, device=device,
+                            ),
+                            _demux_builder(dorado_path, barcode_mods_out, dna_kit, no_classify=False),
+                        ],
+                        model=primary_variant, mods=dna_mods,
+                    ))
+            else:
+                no_trim_out = base_out / "no_trim"
+                cases.append(TestCase(
+                    analyte="DNA", library=library, test_name="dna_singleplex_no_trim",
+                    output_dir=no_trim_out,
+                    command_builders=[_basecaller_builder(
+                        dorado_path, primary_variant, lib_dir, no_trim_out, no_trim=True,
+                        models_directory=models_directory, device=device,
+                    )],
+                    model=primary_variant,
+                ))
 
     if rna_pod5_dir is not None:
         for library in [l for l in ("multiplex", "singleplex") if l in rna_libraries]:
             lib_dir = rna_pod5_dir / library
             base_out = output_root / "rna" / library
-            _add_core_cases("RNA", library, lib_dir, base_out, rna_mods)
+            _add_core_cases("RNA", library, lib_dir, base_out, rna_mods, extra_mod_groups=rna_mod_extra_groups)
 
             poly_a_out = base_out / "poly_a"
             cases.append(TestCase(
@@ -283,7 +365,16 @@ def execute_case(case: TestCase, logs_dir: Path) -> TestResult:
 def run_all(cases: list[TestCase], output_root: Path) -> list[TestResult]:
     logs_dir = output_root / "logs"
     results: list[TestResult] = []
-    for case in cases:
+    total = len(cases)
+    logger.info(
+        "Running %d test case(s): %s",
+        total, ", ".join(c.test_name for c in cases),
+    )
+    for i, case in enumerate(cases, start=1):
+        logger.info(
+            "[%d/%d] Running %s (%s %s, model=%s)",
+            i, total, case.test_name, case.analyte, case.library, case.model,
+        )
         try:
             result = execute_case(case, logs_dir)
         except Exception as exc:  # a test case must never abort the run
@@ -294,6 +385,15 @@ def run_all(cases: list[TestCase], output_root: Path) -> list[TestResult]:
                 wall_time_sec=0.0,
                 commands_executed=[],
                 log_path=logs_dir / f"{case.test_name}.log",
+            )
+        if result.status == "success":
+            logger.info(
+                "[%d/%d] %s: success (%.1fs)", i, total, case.test_name, result.wall_time_sec,
+            )
+        else:
+            logger.error(
+                "[%d/%d] %s: failed (%.1fs) - %s",
+                i, total, case.test_name, result.wall_time_sec, result.error_message,
             )
         results.append(result)
     return results

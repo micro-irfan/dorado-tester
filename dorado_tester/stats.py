@@ -65,7 +65,12 @@ def summary_stats(df: pd.DataFrame, qscore_threshold: float) -> dict:
             "read_len_mean": float("nan"),
             "read_len_median": float("nan"),
             "read_len_mode": float("nan"),
+            "read_len_min": float("nan"),
+            "read_len_max": float("nan"),
             "mean_qscore": float("nan"),
+            "median_qscore": float("nan"),
+            "qscore_min": float("nan"),
+            "qscore_max": float("nan"),
         }
     lengths = df["sequence_length_template"]
     qscores = df["mean_qscore_template"]
@@ -80,7 +85,12 @@ def summary_stats(df: pd.DataFrame, qscore_threshold: float) -> dict:
         "read_len_mean": float(lengths.mean()),
         "read_len_median": float(lengths.median()),
         "read_len_mode": float(mode.iloc[0]) if not mode.empty else float("nan"),
+        "read_len_min": float(lengths.min()),
+        "read_len_max": float(lengths.max()),
         "mean_qscore": float(qscores.mean()),
+        "median_qscore": float(qscores.median()),
+        "qscore_min": float(qscores.min()),
+        "qscore_max": float(qscores.max()),
     }
 
 
@@ -120,34 +130,49 @@ def compute_bam_stats(
     return stats
 
 
-_BARCODE_RE = re.compile(r"(barcode\d+)")
+_BARCODE_RE = re.compile(r"(barcode\d+)", re.IGNORECASE)
 
 
-def _label_from_bam_name(name: str) -> str:
-    stem = name[:-4] if name.endswith(".bam") else name
-    if "unclassified" in stem:
-        return "unclassified"
-    match = _BARCODE_RE.search(stem)
-    return match.group(1) if match else stem
+def _label_for_bam(bam: Path, demux_dir: Path) -> str:
+    """Verified (v2.0.1): dorado output isn't flat or a fixed depth even
+    outside of demux (basecaller output mirrors the source POD5 tree, e.g.
+    down through a bam_pass/<barcode>/ subtree). So the barcode label isn't
+    assumed to live at any particular depth -- every path component between
+    demux_dir and the bam (directories and filename) is checked."""
+    for part in bam.relative_to(demux_dir).parts:
+        if "unclassified" in part.lower():
+            return "unclassified"
+        match = _BARCODE_RE.search(part)
+        if match:
+            return match.group(1).lower()
+    return bam.stem
 
 
 def discover_barcode_bams(demux_dir: Path) -> dict[str, list[Path]]:
-    """Handles both per-barcode subdirectories and flat, barcode-named bam
-    files, since the layout `dorado demux` produces varies by version."""
     if not demux_dir.is_dir():
         return {}
-
     groups: dict[str, list[Path]] = {}
-    subdirs = [d for d in demux_dir.iterdir() if d.is_dir()]
-    if subdirs:
-        for d in subdirs:
-            bams = sorted(d.glob("*.bam"))
-            if bams:
-                groups[d.name] = bams
-        if groups:
-            return groups
-
-    for bam in sorted(demux_dir.glob("*.bam")):
-        label = _label_from_bam_name(bam.name)
+    for bam in sorted(demux_dir.rglob("*.bam")):
+        label = _label_for_bam(bam, demux_dir)
         groups.setdefault(label, []).append(bam)
     return groups
+
+
+# e.g. "[info]  - downloading dna_r10.4.1_e8.2_400bps_hac@v6.0.0 with httplib"
+# -- hac/sup/fast resolve to a specific versioned model at runtime; this is
+# the only place that resolved name is ever printed. Only present when the
+# model wasn't already cached under --models-directory, so this can come up
+# empty on a warm cache -- there's no other line to fall back to.
+_RESOLVED_MODEL_RE = re.compile(r"downloading\s+(\S+)")
+
+
+def extract_resolved_models(log_path: Path) -> list[str]:
+    if not log_path.is_file():
+        return []
+    text = log_path.read_text(encoding="utf-8", errors="replace")
+    seen: list[str] = []
+    for match in _RESOLVED_MODEL_RE.finditer(text):
+        model = match.group(1)
+        if model not in seen:
+            seen.append(model)
+    return seen

@@ -5,16 +5,18 @@ import sys
 from pathlib import Path
 
 from dorado_tester import aggregate, cli, runner, version
+from dorado_tester.log import setup_logging
 
 MODS_CONFIG_PATH = Path(__file__).resolve().parent / "config" / "mods.yaml"
 
 
 def main(argv: list[str] | None = None) -> int:
+    logger = setup_logging()
     args = cli.parse_args(argv)
     dorado_path = str(args.path_to_dorado)
 
     dorado_version = version.get_dorado_version(dorado_path)
-    print(f"Dorado version: {dorado_version.raw}")
+    logger.info("Dorado version: %s", dorado_version.raw)
 
     output_root = args.output_dir / dorado_version.safe
     output_root.mkdir(parents=True, exist_ok=True)
@@ -33,8 +35,16 @@ def main(argv: list[str] | None = None) -> int:
         mods_config.get("rna", {}).get("compatible_mods", []), available_mods_output
     )
 
-    if args.test_fast and args.ignore_sup:
-        print("--test_fast overrides --ignore_sup; running the fast model variant only.")
+    rna_mod_extra_groups = []
+    for group in args.rna_mod:
+        resolved = runner.resolve_compatible_mods(group, available_mods_output)
+        if not resolved:
+            logger.warning(
+                "--rna_mod group %s has no mods supported by this Dorado version; skipping.",
+                group,
+            )
+            continue
+        rna_mod_extra_groups.append(resolved)
 
     cases = runner.build_test_matrix(
         dorado_path=dorado_path,
@@ -49,28 +59,67 @@ def main(argv: list[str] | None = None) -> int:
         rna_mods=rna_mods,
         dna_libraries=args.dna_libraries,
         rna_libraries=args.rna_libraries,
-        ignore_sup=args.ignore_sup,
-        test_fast=args.test_fast,
+        ignore=set(args.ignore),
+        rna_mod_extra_groups=rna_mod_extra_groups,
     )
 
-    print(f"Running {len(cases)} test cases...")
+    if args.list_tests:
+        for case in cases:
+            print(case.test_name)
+        return 0
+
+    if args.only:
+        if args.add_tests:
+            logger.warning(
+                "--only and --add_tests both given; ignoring --add_tests since --only "
+                "already selects the exact cases to run: %s",
+                sorted(args.add_tests),
+            )
+        requested = set(args.only)
+        available = {c.test_name for c in cases}
+        unknown = sorted(requested - available)
+        if unknown:
+            logger.warning("Unknown --only test name(s), skipping: %s", unknown)
+        cases = [c for c in cases if c.test_name in requested]
+        if not cases:
+            logger.warning("No matching test cases to run.")
+    else:
+        available = {c.test_name for c in cases}
+        add_tests = set(args.add_tests)
+        unknown_add = sorted(add_tests - available)
+        if unknown_add:
+            logger.warning("Unknown --add_tests test name(s), ignoring: %s", unknown_add)
+
+        dynamic_excluded = {c.test_name for c in cases if c.default_excluded}
+        to_exclude = (runner.DEFAULT_EXCLUDED_TESTS | dynamic_excluded) - add_tests
+        excluded = [c for c in cases if c.test_name in to_exclude]
+        if excluded:
+            logger.info(
+                "Excluding from default run (use --only or --add_tests to run explicitly): %s",
+                sorted(c.test_name for c in excluded),
+            )
+        cases = [c for c in cases if c.test_name not in to_exclude]
+
     results = runner.run_all(cases, output_root)
 
     n_success = sum(1 for r in results if r.status == "success")
     n_failed = len(results) - n_success
-    print(f"Completed: {n_success} succeeded, {n_failed} failed.")
+    if n_failed:
+        logger.warning("Completed: %d succeeded, %d failed.", n_success, n_failed)
+    else:
+        logger.info("Completed: %d succeeded, %d failed.", n_success, n_failed)
 
     manifest_path = output_root / "manifest.json"
     runner.write_manifest(results, dorado_version, dorado_path, manifest_path)
-    print(f"Manifest written to {manifest_path}")
+    logger.info("Manifest written to %s", manifest_path)
 
     try:
         stats_csv_path = aggregate.aggregate_version(output_root)
-        print(f"Stats written to {stats_csv_path}")
+        logger.info("Stats written to %s", stats_csv_path)
         summary_path = aggregate.build_summary_all_versions(args.output_dir)
-        print(f"Cross-version summary written to {summary_path}")
+        logger.info("Cross-version summary written to %s", summary_path)
     except Exception as exc:
-        print(f"Stats aggregation failed (test results above are unaffected): {exc}")
+        logger.error("Stats aggregation failed (test results above are unaffected): %s", exc)
 
     if args.strict and n_failed > 0:
         return 1

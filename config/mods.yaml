@@ -4,4 +4,9 @@
 dna:
   compatible_mods: ["5mCG_5hmCG", "6mA"]
 rna:
-  compatible_mods: ["m6A", "pseU"]
+  # m6A + pseU act on different canonical bases (A vs U/T) but are NOT
+  # combinable: verified against v2.0.1, dorado refuses to mix mod models of
+  # different internal architecture types (m6A@v1 is conv_lstm, pseU@v1 is
+  # conv_lstm_v3), independent of canonical-base conflicts. Use --rna_mod to
+  # test pseU (alone, or other combinations) as additional parallel cases.
+  compatible_mods: ["m6A"]
