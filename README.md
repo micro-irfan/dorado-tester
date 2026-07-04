@@ -1,4 +1,4 @@
-# dorado-tester
+# Dorado-Tester
 
 Version-comparison test harness for [Dorado](https://github.com/nanoporetech/dorado), Oxford Nanopore's basecaller.
 
@@ -10,10 +10,20 @@ recorded independently.
 
 Refer [here](https://github.com/Kirk3gaard/2025-Crowdsource-GPU-basecalling-stats) to review GPU performance (Gbp/day)
 
-## Install
+## Install Dorado and Dorado-Tester
 
 ```
+curl  "https://cdn.oxfordnanoportal.com/software/analysis/dorado-2.0.1-linux-x64.tar.gz" -o dorado-2.0.1-linux-x64.tar.gz
+tar -xzf dorado-2.0.1-linux-x64.tar.gz
+
+# To check Dorado - we run a quick check 
+dorado-2.0.1-linux-x64/bin/dorado --version
+
+# To Install dorado-tester
+git clone https://github.com/micro-irfan/dorado-tester.git
+cd dorado-tester
 pip install -r requirements.txt
+
 ```
 
 ## Input layout
@@ -293,13 +303,13 @@ rather than assuming a filename or a flat layout.
   A read counts as "passed" if its `mean_qscore_template` is above 9 (hac),
   12 (sup), or 8 (fast, only relevant when `--ignore` drops both hac and sup).
 - `results/<version>/stats_<version>_per_barcode.csv` — per-barcode breakdown
-  for every DNA multiplex case (all four core cases, which classify inline
-  via `--kit-name`, plus the dedicated barcode-kit case, which classifies via
-  `demux`), one row per barcode per case; the combined row for that case in
-  the main CSV concatenates all of its barcodes together. Bam discovery here
-  is recursive and depth-agnostic (see the note above under Output) —
-  barcode labels are read from whichever path component (directory or
-  filename) matches `barcodeNN`/`unclassified`.
+  for every multiplex case, DNA and RNA both (the core cases, which classify
+  inline via `--kit-name`, plus DNA's dedicated barcode-kit case, which
+  classifies via `demux`), one row per barcode per case; the combined row
+  for that case in the main CSV concatenates all of its barcodes together.
+  Bam discovery here is recursive and depth-agnostic (see the note above
+  under Output) — barcode labels are read from whichever path component
+  (directory or filename) matches `barcodeNN`/`unclassified`.
 - `results/summary_all_versions.csv` — every version's `stats_<version>.csv`
   concatenated, for cross-version comparison.
 

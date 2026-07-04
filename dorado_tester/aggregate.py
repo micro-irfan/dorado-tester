@@ -1,6 +1,6 @@
 """Combines a version's manifest.json + Dorado outputs into
-stats_<version>.csv, plus a per-barcode breakdown (for every DNA multiplex
-case, which all classify by barcode one way or another) and a
+stats_<version>.csv, plus a per-barcode breakdown (for every multiplex case,
+DNA and RNA both, which all classify by barcode one way or another) and a
 summary_all_versions.csv across every version run under the results root."""
 
 from __future__ import annotations
@@ -56,12 +56,12 @@ def _empty_case_stats() -> dict:
 
 
 def _is_barcode_classified_case(case: dict) -> bool:
-    """Every DNA multiplex case classifies by barcode one way or another:
-    the 4 general cases via inline --kit-name during basecalling (verified
-    v2.0.1: this alone splits output into per-barcode bam_pass/<barcode>/
-    files, no demux step involved), and the dedicated barcode-kit case via
-    a separate demux step. Everything else (singleplex, RNA) doesn't."""
-    return case["analyte"] == "DNA" and case["library"] == "multiplex"
+    """Every multiplex case (DNA and RNA both) classifies by barcode one way
+    or another: the general cases via inline --kit-name during basecalling
+    (verified v2.0.1: this alone splits output into per-barcode
+    bam_pass/<barcode>/ files, no demux step involved), and DNA's dedicated
+    barcode-kit case via a separate demux step. Singleplex doesn't."""
+    return case["library"] == "multiplex"
 
 
 def _barcode_scan_dir(case: dict) -> Path:
