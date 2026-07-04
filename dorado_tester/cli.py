@@ -39,7 +39,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--path_to_dna_pod5", type=Path, default=None)
     parser.add_argument("--path_to_rna_pod5", type=Path, default=None)
     parser.add_argument("--dna_kit", default="SQK-NBD114-24")
-    parser.add_argument("--rna_kit", default="SQK-DRB004.24")
+    parser.add_argument("--rna_kit", default="SQK-DRB004-24")
     parser.add_argument("--output_dir", type=Path, default=Path("results"))
     parser.add_argument("--device", default="auto")
     parser.add_argument("--models_directory", type=Path, default=None)

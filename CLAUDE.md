@@ -24,7 +24,7 @@ The main entry point is a runner (Python, see "Structure" below) that accepts:
 
 \* At least one of `--path_to_dna_pod5` / `--path_to_rna_pod5` is required — providing neither is a config error (fail fast, not a test failure).
 | `--dna_kit` | no (default configurable) | Barcode kit name for the DNA multiplex library, e.g. `SQK-NBD114-24`. |
-| `--rna_kit` | no (default configurable) | Barcode kit name for the RNA multiplex library, e.g. `SQK-DRB004.24`. |
+| `--rna_kit` | no (default configurable) | Barcode kit name for the RNA multiplex library, e.g. `SQK-DRB004-24`. |
 | `--output_dir` | no (default `./results`) | Where results are written. |
 | `--device` | no (default `auto`) | Passed through to Dorado's `-x/--device` (`auto`, `cpu`, `cuda:all`, …). |
 | `--models_directory` | no | Passed through to Dorado's `--models-directory` so model downloads are cached/shared between versions. |

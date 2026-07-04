@@ -65,7 +65,7 @@ python run_tests.py \
   --path_to_dna_pod5 /data/dna \
   --path_to_rna_pod5 /data/rna \
   --dna_kit SQK-NBD114-24 \
-  --rna_kit SQK-DRB004.24 \
+  --rna_kit SQK-DRB004-24 \
   --output_dir ./results \
   --device auto \
   --models_directory /shared/dorado-models
@@ -77,7 +77,7 @@ python run_tests.py \
 | `--path_to_dna_pod5` | no* | Directory of DNA POD5 input (see layout above). If omitted, DNA tests are skipped. |
 | `--path_to_rna_pod5` | no* | Directory of RNA POD5 input. If omitted, RNA tests are skipped. |
 | `--dna_kit` | no | Barcode kit name for the DNA multiplex library. Default `SQK-NBD114-24`. |
-| `--rna_kit` | no | Barcode kit name for the RNA multiplex library. Default `SQK-DRB004.24`. |
+| `--rna_kit` | no | Barcode kit name for the RNA multiplex library. Default `SQK-DRB004-24`. |
 | `--output_dir` | no | Where results are written. Default `./results`. |
 | `--device` | no | Passed through to Dorado's `-x/--device`. Default `auto`. |
 | `--models_directory` | no | Passed through to Dorado's `--models-directory` so model downloads are cached/shared between versions. |
