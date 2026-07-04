@@ -288,7 +288,11 @@ def build_test_matrix(
         for library in [l for l in ("multiplex", "singleplex") if l in rna_libraries]:
             lib_dir = rna_pod5_dir / library
             base_out = output_root / "rna" / library
-            _add_core_cases("RNA", library, lib_dir, base_out, rna_mods, extra_mod_groups=rna_mod_extra_groups)
+            rna_kit_name = rna_kit if library == "multiplex" else None
+            _add_core_cases(
+                "RNA", library, lib_dir, base_out, rna_mods,
+                kit_name=rna_kit_name, extra_mod_groups=rna_mod_extra_groups,
+            )
 
             poly_a_out = base_out / "poly_a"
             cases.append(TestCase(
@@ -296,6 +300,7 @@ def build_test_matrix(
                 output_dir=poly_a_out,
                 command_builders=[_basecaller_builder(
                     dorado_path, primary_variant, lib_dir, poly_a_out, estimate_poly_a=True,
+                    kit_name=rna_kit_name,
                     models_directory=models_directory, device=device,
                 )],
                 model=primary_variant,

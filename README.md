@@ -107,12 +107,12 @@ given) and RNA (if `--path_to_rna_pod5` is given):
   `dorado download --list` for the target version — mods the version doesn't
   support are dropped)
 
-For the **DNA multiplex** library specifically, all four of the above are
-basecalled with `--kit-name` (inline classification, default trim). No
-separate demux step — verified against v2.0.1, `--kit-name` during
-basecalling already splits output into per-barcode
-`bam_pass/<barcode>/*.bam` files on its own; a redundant `demux` call on
-top of that fails (see [CLAUDE.md](CLAUDE.md) for why).
+For the **multiplex** library (DNA and RNA both), all of the above — plus
+RNA's poly(A) case — are basecalled with `--kit-name` (inline
+classification, default trim). No separate demux step — verified against
+v2.0.1, `--kit-name` during basecalling already splits output into
+per-barcode `bam_pass/<barcode>/*.bam` files on its own; a redundant
+`demux` call on top of that fails (see [CLAUDE.md](CLAUDE.md) for why).
 
 Plus, DNA-only:
 
@@ -171,9 +171,11 @@ arguments produce.
 | `rna_<library>_sup_mods` | `sup,<mods>` (default: `m6A` only — see below) | Only if RNA mods available |
 | `rna_<library>_poly_a` | `basecaller sup --estimate-poly-a` | Yes |
 
-(`<library>` is `multiplex` or `singleplex`; RNA has no dedicated barcode-kit
-or no-trim case — see [CLAUDE.md](CLAUDE.md) if you want that mirrored for
-RNA cDNA kits.)
+(`<library>` is `multiplex` or `singleplex`. For `multiplex`, every row above
+— poly(A) included — also gets `--kit-name <RNA_KIT>` on the basecall, same
+inline-classify-and-auto-split behavior as DNA multiplex, no separate demux
+step. RNA has no *dedicated* barcode-kit or no-trim case, though — see
+[CLAUDE.md](CLAUDE.md) if you want that mirrored for RNA cDNA kits.)
 
 Two things reshape these names at runtime:
 
@@ -255,6 +257,11 @@ results/<version>/
 ├── dna/<library>/<test>/  # basecaller/demux output
 └── rna/<library>/<test>/
 ```
+
+If `results/<version>/` already exists from an earlier run, a fresh run
+never reuses or merges into it — it writes to `results/<version>_1/`
+instead (`_2`, `_3`, ... if those exist too), so one run's manifest/logs can
+never get mixed with another's.
 
 Dorado does not write a flat `calls_<timestamp>.bam` into `<test>/` —
 it mirrors the source POD5 tree (e.g.

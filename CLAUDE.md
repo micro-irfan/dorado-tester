@@ -51,6 +51,7 @@ The runner should validate these exist at startup and fail fast (before any base
 
 - At startup, extract the version by running `"$DORADO" --version` and parsing the output. Store it verbatim (e.g. `1.0.2+abc1234`). Dorado prints version to stderr on some builds, so **capture both stdout and stderr**.
 - Use a filesystem-safe form of the version to namespace all outputs: `results/<version>/...`. This is what makes cross-version comparison possible — each run lives in its own tree, and the aggregation step reads across them.
+- Never reuse or merge into an existing `results/<version>/` — if one already exists, write to `results/<version>_1/` instead (`_2`, `_3`, ... as needed), so one invocation's manifest.json/logs can never mix with another's.
 - Set `--models-directory` (or `DORADO_MODELS_DIRECTORY`) to a shared cache so different Dorado versions reuse downloaded models where compatible, avoiding re-downloading multi-GB models each run.
 
 ---
@@ -113,7 +114,14 @@ For **each** library in `{multiplex, singleplex}`:
 2. **HAC + mods** and **SUP + mods** (RNA mods differ — see below).
 3. **poly(A) tail estimation** — `dorado basecaller sup <lib> --estimate-poly-a`. The estimated tail length is written to the `pt:i:` BAM tag per read.
 
-> If the user later wants the DNA barcode/demux flow mirrored for RNA cDNA kits (PCB/PCS), that's a natural extension, but it is **not** in the current spec — do not add it unless asked.
+For the **multiplex** library, all of the above (including poly(A)) get
+`--kit-name <RNA_KIT>` added to the basecall, same as DNA multiplex — this
+was missed initially (`rna_kit`/`--rna_kit` was accepted on the CLI but never
+actually passed through to any command). No dedicated demux step here either,
+for the same reason as DNA: inline `--kit-name` already splits output into
+per-barcode `bam_pass/<barcode>/*.bam`.
+
+> If the user later wants the DNA barcode/demux flow mirrored for RNA cDNA kits (PCB/PCS) — i.e. a *dedicated* case with the opposite (no-trim + demux) convention, like DNA case 5 — that's a natural extension, but it is **not** in the current spec — do not add it unless asked.
 
 ---
 

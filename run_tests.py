@@ -10,6 +10,19 @@ from dorado_tester.log import setup_logging
 MODS_CONFIG_PATH = Path(__file__).resolve().parent / "config" / "mods.yaml"
 
 
+def resolve_output_root(output_dir: Path, version_safe: str) -> Path:
+    """Never reuses an existing results/<version>/ -- always picks a fresh
+    <version>_1, <version>_2, ... instead, so one run's output can't get
+    mixed into another's manifest.json/logs."""
+    candidate = output_dir / version_safe
+    if not candidate.exists():
+        return candidate
+    i = 1
+    while (output_dir / f"{version_safe}_{i}").exists():
+        i += 1
+    return output_dir / f"{version_safe}_{i}"
+
+
 def main(argv: list[str] | None = None) -> int:
     logger = setup_logging()
     args = cli.parse_args(argv)
@@ -18,8 +31,13 @@ def main(argv: list[str] | None = None) -> int:
     dorado_version = version.get_dorado_version(dorado_path)
     logger.info("Dorado version: %s", dorado_version.raw)
 
-    output_root = args.output_dir / dorado_version.safe
+    output_root = resolve_output_root(args.output_dir, dorado_version.safe)
     output_root.mkdir(parents=True, exist_ok=True)
+    if output_root.name != dorado_version.safe:
+        logger.info(
+            "results/%s already exists; writing this run to %s instead",
+            dorado_version.safe, output_root.name,
+        )
 
     models_directory = args.models_directory
     if models_directory:
