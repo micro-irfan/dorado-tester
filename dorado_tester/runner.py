@@ -18,8 +18,10 @@ CommandBuilder = Callable[[Path], list[str]]
 logger = get_logger()
 
 # Built into the matrix (so --list_tests/--only/--add_tests can still see and
-# select them), but skipped from a default (no --only) run.
-DEFAULT_EXCLUDED_TESTS = frozenset({"dna_singleplex_no_trim", "dna_multiplex_barcode_kit_mods"})
+# select them), but skipped from a default (no --only) run. Cases whose name
+# depends on CLI input (e.g. barcode_kit_mods_<variant>, --rna_mod combos)
+# can't be listed here statically -- see TestCase.default_excluded instead.
+DEFAULT_EXCLUDED_TESTS = frozenset({"dna_singleplex_no_trim"})
 
 
 @dataclass
@@ -197,9 +199,9 @@ def build_test_matrix(
 
             if mods:
                 model_with_mods = dorado_commands.build_model_with_mods(variant, mods)
-                mods_out = base_out / f"{variant}_mods"
+                mods_out = base_out / f"mods_{variant}"
                 cases.append(TestCase(
-                    analyte=analyte, library=library, test_name=f"{analyte.lower()}_{library}_{variant}_mods",
+                    analyte=analyte, library=library, test_name=f"{analyte.lower()}_{library}_mods_{variant}",
                     output_dir=mods_out,
                     command_builders=[_basecaller_builder(
                         dorado_path, model_with_mods, lib_dir, mods_out,
@@ -217,10 +219,10 @@ def build_test_matrix(
                     continue
                 model_with_mods = dorado_commands.build_model_with_mods(variant, extra_mods)
                 slug = _mods_slug(extra_mods)
-                mods_out = base_out / f"{variant}_mods_{slug}"
+                mods_out = base_out / f"mods_{slug}_{variant}"
                 cases.append(TestCase(
                     analyte=analyte, library=library,
-                    test_name=f"{analyte.lower()}_{library}_{variant}_mods_{slug}",
+                    test_name=f"{analyte.lower()}_{library}_mods_{slug}_{variant}",
                     output_dir=mods_out,
                     command_builders=[_basecaller_builder(
                         dorado_path, model_with_mods, lib_dir, mods_out,
@@ -241,37 +243,40 @@ def build_test_matrix(
             )
 
             if library == "multiplex":
-                barcode_out = base_out / "barcode_kit"
-                cases.append(TestCase(
-                    analyte="DNA", library=library, test_name="dna_multiplex_barcode_kit",
-                    output_dir=barcode_out,
-                    command_builders=[
-                        _basecaller_builder(
-                            dorado_path, primary_variant, lib_dir, barcode_out,
-                            no_trim=True,
-                            models_directory=models_directory, device=device,
-                        ),
-                        _demux_builder(dorado_path, barcode_out, dna_kit, no_classify=False),
-                    ],
-                    model=primary_variant,
-                ))
-
-                if dna_mods:
-                    barcode_model_with_mods = dorado_commands.build_model_with_mods(primary_variant, dna_mods)
-                    barcode_mods_out = base_out / "barcode_kit_mods"
+                for variant in variants:
+                    barcode_out = base_out / f"barcode_kit_{variant}"
                     cases.append(TestCase(
-                        analyte="DNA", library=library, test_name="dna_multiplex_barcode_kit_mods",
-                        output_dir=barcode_mods_out,
+                        analyte="DNA", library=library, test_name=f"dna_multiplex_barcode_kit_{variant}",
+                        output_dir=barcode_out,
                         command_builders=[
                             _basecaller_builder(
-                                dorado_path, barcode_model_with_mods, lib_dir, barcode_mods_out,
+                                dorado_path, variant, lib_dir, barcode_out,
                                 no_trim=True,
                                 models_directory=models_directory, device=device,
                             ),
-                            _demux_builder(dorado_path, barcode_mods_out, dna_kit, no_classify=False),
+                            _demux_builder(dorado_path, barcode_out, dna_kit, no_classify=False),
                         ],
-                        model=primary_variant, mods=dna_mods,
+                        model=variant,
                     ))
+
+                    if dna_mods:
+                        barcode_model_with_mods = dorado_commands.build_model_with_mods(variant, dna_mods)
+                        barcode_mods_out = base_out / f"barcode_kit_mods_{variant}"
+                        cases.append(TestCase(
+                            analyte="DNA", library=library,
+                            test_name=f"dna_multiplex_barcode_kit_mods_{variant}",
+                            output_dir=barcode_mods_out,
+                            command_builders=[
+                                _basecaller_builder(
+                                    dorado_path, barcode_model_with_mods, lib_dir, barcode_mods_out,
+                                    no_trim=True,
+                                    models_directory=models_directory, device=device,
+                                ),
+                                _demux_builder(dorado_path, barcode_mods_out, dna_kit, no_classify=False),
+                            ],
+                            model=variant, mods=dna_mods,
+                            default_excluded=True,
+                        ))
             else:
                 no_trim_out = base_out / "no_trim"
                 cases.append(TestCase(

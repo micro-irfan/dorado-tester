@@ -89,9 +89,9 @@ its basecall step deliberately skips inline classification.
 
 Then the dedicated barcoding-specific flows:
 
-5. **Multiplex barcode kit** — plain basecall (no-trim, no inline classification), then classify + trim via demux:
+5. **Multiplex barcode kit** — plain basecall (no-trim, no inline classification), then classify + trim via demux, for **both** hac and sup (`dna_multiplex_barcode_kit_hac` / `dna_multiplex_barcode_kit_sup`):
    ```
-   dorado basecaller sup <multiplex> --no-trim -o <out>
+   dorado basecaller {hac|sup} <multiplex> --no-trim -o <out>
    dorado demux --kit-name <DNA_KIT> --output-dir <out>/demux <all *.bam found recursively under <out>>
    ```
    (Verified against v2.0.1: passing `--kit-name` together with `--no-trim` at the
@@ -100,10 +100,11 @@ Then the dedicated barcoding-specific flows:
    already classified inline. See the bam-naming note below — the demux input bams
    have to be discovered recursively, not assumed to be `<out>/calls_*.bam`.)
 
-   A mods variant of this case (`dna_multiplex_barcode_kit_mods`, model
-   `<variant>,<mods>`, same `--no-trim` + `demux --kit-name` flow) also exists,
-   but — like case 6 below — is excluded from the harness's default run (built
-   into the matrix, selectable via `--only`/`--add_tests`; see README.md).
+   A mods variant of this case (`dna_multiplex_barcode_kit_mods_hac` /
+   `_sup`, model `<variant>,<mods>`, same `--no-trim` + `demux --kit-name`
+   flow) also exists, but — like case 6 below — is excluded from the
+   harness's default run (built into the matrix, selectable via
+   `--only`/`--add_tests`; see README.md).
 6. **Singleplex, no trim** — `dorado basecaller sup <singleplex> --no-trim` (also excluded from the harness's default run, same as case 5's mods variant above)
 
 ### RNA (only when `--path_to_rna_pod5` is given)

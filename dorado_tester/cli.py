@@ -74,7 +74,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         metavar="TEST_NAME",
         help="Also run these test case(s) by name, on top of the default run, even if they're "
              "normally excluded from it (e.g. dna_singleplex_no_trim, "
-             "dna_multiplex_barcode_kit_mods). Accepts space- and/or comma-separated names, "
+             "dna_multiplex_barcode_kit_mods_hac). Accepts space- and/or comma-separated names, "
              "same as --only. Ignored if --only is given.",
     )
     parser.add_argument(
@@ -82,7 +82,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         nargs="+",
         default=None,
         metavar="MODS",
-        help="Override the RNA mods used for *_hac_mods/*_sup_mods, testing multiple "
+        help="Override the RNA mods used for *_mods_hac/*_mods_sup, testing multiple "
              "combinations as separate parallel cases: ';'-separated groups, each a "
              "comma-separated set of mods to combine in that case, e.g. "
              "'--rna_mod m6A,pseU;m6A;pseU' runs three cases (m6A+pseU combined, m6A "

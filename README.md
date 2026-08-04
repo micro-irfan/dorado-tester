@@ -100,11 +100,11 @@ python run_tests.py \
 
 \* At least one of `--path_to_dna_pod5` / `--path_to_rna_pod5` must be given.
 
-`dna_singleplex_no_trim` and `dna_multiplex_barcode_kit_mods` are built into
-the matrix (so `--list_tests` shows them and `--only`/`--add_tests` can
-select them) but are skipped from a default run — no flag needed to exclude
-them, only `--only <name>` or `--add_tests <name>` to explicitly include one.
-Any extra combo added via `--rna_mod` is excluded the same way.
+`dna_singleplex_no_trim` and `dna_multiplex_barcode_kit_mods_{hac,sup}` are
+built into the matrix (so `--list_tests` shows them and `--only`/`--add_tests`
+can select them) but are skipped from a default run — no flag needed to
+exclude them, only `--only <name>` or `--add_tests <name>` to explicitly
+include one. Any extra combo added via `--rna_mod` is excluded the same way.
 
 ## What it runs
 
@@ -126,14 +126,14 @@ per-barcode `bam_pass/<barcode>/*.bam` files on its own; a redundant
 
 Plus, DNA-only:
 
-- **Multiplex barcode kit** (a separate, dedicated case): plain basecalling
-  with `--no-trim` (no inline classification), followed by
-  `dorado demux --kit-name` — here `demux` *is* needed, since this case's
-  basecall step deliberately skips inline classification (the opposite
-  convention from the cases above; see [CLAUDE.md](CLAUDE.md) for why). Same
-  flow with mods (`dna_multiplex_barcode_kit_mods`, model
-  `<variant>,<mods>`) also exists, but is excluded from the default run —
-  see below.
+- **Multiplex barcode kit** (a separate, dedicated case, run for both hac
+  and sup — `dna_multiplex_barcode_kit_hac`/`_sup`): plain basecalling with
+  `--no-trim` (no inline classification), followed by `dorado demux
+  --kit-name` — here `demux` *is* needed, since this case's basecall step
+  deliberately skips inline classification (the opposite convention from
+  the cases above; see [CLAUDE.md](CLAUDE.md) for why). Same flow with mods
+  (`dna_multiplex_barcode_kit_mods_hac`/`_sup`) also exists, but is excluded
+  from the default run — see below.
 - **Singleplex**: basecalling with `--no-trim` (`dna_singleplex_no_trim` —
   also excluded from the default run, see below)
 
@@ -156,10 +156,12 @@ arguments produce.
 |---|---|---|
 | `dna_multiplex_simplex_hac` | `basecaller hac --kit-name` (auto-splits into `bam_pass/<barcode>/`) | Yes |
 | `dna_multiplex_simplex_sup` | Same, `sup` | Yes |
-| `dna_multiplex_hac_mods` | `hac,<mods>` + `--kit-name` | Only if DNA mods available |
-| `dna_multiplex_sup_mods` | `sup,<mods>` + `--kit-name` | Only if DNA mods available |
-| `dna_multiplex_barcode_kit` | Plain basecall `--no-trim` (no inline classify), then `dorado demux --kit-name` | Yes |
-| `dna_multiplex_barcode_kit_mods` | Same, with `<variant>,<mods>` as the model | **No** — use `--only`/`--add_tests` |
+| `dna_multiplex_mods_hac` | `hac,<mods>` + `--kit-name` | Only if DNA mods available |
+| `dna_multiplex_mods_sup` | `sup,<mods>` + `--kit-name` | Only if DNA mods available |
+| `dna_multiplex_barcode_kit_hac` | Plain basecall `--no-trim` (no inline classify), then `dorado demux --kit-name` | Yes |
+| `dna_multiplex_barcode_kit_sup` | Same, `sup` | Yes |
+| `dna_multiplex_barcode_kit_mods_hac` | Same as `_hac`, with `hac,<mods>` as the model | **No** — use `--only`/`--add_tests` |
+| `dna_multiplex_barcode_kit_mods_sup` | Same as `_sup`, with `sup,<mods>` as the model | **No** — use `--only`/`--add_tests` |
 
 ### DNA — singleplex (only if `--path_to_dna_pod5` given and has `singleplex/`)
 
@@ -167,8 +169,8 @@ arguments produce.
 |---|---|---|
 | `dna_singleplex_simplex_hac` | `basecaller hac` | Yes |
 | `dna_singleplex_simplex_sup` | `basecaller sup` | Yes |
-| `dna_singleplex_hac_mods` | `hac,<mods>` | Only if DNA mods available |
-| `dna_singleplex_sup_mods` | `sup,<mods>` | Only if DNA mods available |
+| `dna_singleplex_mods_hac` | `hac,<mods>` | Only if DNA mods available |
+| `dna_singleplex_mods_sup` | `sup,<mods>` | Only if DNA mods available |
 | `dna_singleplex_no_trim` | `basecaller --no-trim` | **No** — use `--only`/`--add_tests` |
 
 ### RNA — multiplex / singleplex (only if `--path_to_rna_pod5` given and has that library)
@@ -177,8 +179,8 @@ arguments produce.
 |---|---|---|
 | `rna_<library>_simplex_hac` | `basecaller hac` | Yes |
 | `rna_<library>_simplex_sup` | `basecaller sup` | Yes |
-| `rna_<library>_hac_mods` | `hac,<mods>` (default: `m6A` only — see below) | Only if RNA mods available |
-| `rna_<library>_sup_mods` | `sup,<mods>` (default: `m6A` only — see below) | Only if RNA mods available |
+| `rna_<library>_mods_hac` | `hac,<mods>` (default: `m6A` only — see below) | Only if RNA mods available |
+| `rna_<library>_mods_sup` | `sup,<mods>` (default: `m6A` only — see below) | Only if RNA mods available |
 | `rna_<library>_poly_a` | `basecaller sup --estimate-poly-a` | Yes |
 
 (`<library>` is `multiplex` or `singleplex`. For `multiplex`, every row above
@@ -192,10 +194,9 @@ Two things reshape these names at runtime:
 - **`--ignore`**: `hac`/`sup` in every name above only appears for whichever
   variant(s) you *haven't* ignored. If you ignore both (`--ignore sup,hac`),
   every `hac`/`sup` segment becomes `fast` instead (e.g.
-  `dna_multiplex_simplex_fast`, `dna_multiplex_barcode_kit` still named the
-  same but basecalled with `fast`).
-- **Mods-dependent cases** (`*_hac_mods`, `*_sup_mods`,
-  `dna_multiplex_barcode_kit_mods`) only exist if `config/mods.yaml` has at
+  `dna_multiplex_simplex_fast`, `dna_multiplex_barcode_kit_fast`).
+- **Mods-dependent cases** (`*_mods_hac`, `*_mods_sup`,
+  `dna_multiplex_barcode_kit_mods_hac`/`_sup`) only exist if `config/mods.yaml` has at
   least one configured mod left for that analyte after cross-checking
   against the target version's `dorado download --list` output (mods it
   doesn't support are dropped) — otherwise they're omitted entirely, not
@@ -208,8 +209,8 @@ Two things reshape these names at runtime:
   [CLAUDE.md](CLAUDE.md)). Passing `--rna_mod` **adds** one extra case per
   `;`-separated group *alongside* the default `m6A` case (it doesn't
   replace it), each suffixed with its mod combo, e.g.
-  `--rna_mod "m6A,pseU;pseU"` adds `rna_<library>_hac_mods_m6A+pseU` and
-  `rna_<library>_hac_mods_pseU` (and the `sup_mods` equivalents) — but like
+  `--rna_mod "m6A,pseU;pseU"` adds `rna_<library>_mods_m6A+pseU_hac` and
+  `rna_<library>_mods_pseU_hac` (and the `_sup` equivalents) — but like
   `dna_singleplex_no_trim`, these extras are excluded from the default run;
   use `--only`/`--add_tests` to run them.
 
@@ -222,7 +223,7 @@ the available names, then rerun scoped to just one (or a few):
 python run_tests.py --path_to_dorado ... --path_to_dna_pod5 ... --list_tests
 # dna_multiplex_simplex_hac
 # dna_multiplex_simplex_sup
-# dna_multiplex_hac_mods
+# dna_multiplex_mods_hac
 # ...
 
 python run_tests.py --path_to_dorado ... --path_to_dna_pod5 ... \
@@ -233,7 +234,7 @@ This still produces `logs/dna_singleplex_no_trim.log`, a `manifest.json`
 containing just that case, and a `stats_<version>.csv` row for it — the same
 outputs a full run would produce, just scoped down. `--only` accepts
 multiple names, space- and/or comma-separated
-(`--only dna_singleplex_no_trim,dna_multiplex_barcode_kit`), if you want a
+(`--only dna_singleplex_no_trim,dna_multiplex_barcode_kit_sup`), if you want a
 handful of cases instead of one.
 
 ## Logging
@@ -244,11 +245,11 @@ computation problems) — are logged to **stderr** via the standard `logging`
 module (`dorado_tester/log.py`), timestamped, e.g.:
 
 ```
-2026-07-03 10:02:15 [INFO] Running 6 test case(s): dna_multiplex_simplex_hac, dna_multiplex_barcode_kit, ...
+2026-07-03 10:02:15 [INFO] Running 6 test case(s): dna_multiplex_simplex_hac, dna_multiplex_barcode_kit_hac, ...
 2026-07-03 10:02:15 [INFO] [1/6] Running dna_multiplex_simplex_hac (DNA multiplex, model=hac)
 2026-07-03 10:19:52 [INFO] [1/6] dna_multiplex_simplex_hac: success (1057.3s)
-2026-07-03 10:19:52 [INFO] [2/6] Running dna_multiplex_barcode_kit (DNA multiplex, model=hac)
-2026-07-03 10:37:10 [ERROR] [2/6] dna_multiplex_barcode_kit: failed (1038.1s) - No basecaller output *.bam found under ... for demux step
+2026-07-03 10:19:52 [INFO] [2/6] Running dna_multiplex_barcode_kit_hac (DNA multiplex, model=hac)
+2026-07-03 10:37:10 [ERROR] [2/6] dna_multiplex_barcode_kit_hac: failed (1038.1s) - No basecaller output *.bam found under ... for demux step
 ```
 
 This is separate from each case's raw Dorado stdout/stderr, which is always
