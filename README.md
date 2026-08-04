@@ -10,6 +10,8 @@ recorded independently.
 
 Refer [here](https://github.com/Kirk3gaard/2025-Crowdsource-GPU-basecalling-stats) to review GPU performance (Gbp/day)
 
+See [CHANGELOG.md](CHANGELOG.md) for release history (currently v1.0.0).
+
 ## Install Dorado and Dorado-Tester
 
 ```
