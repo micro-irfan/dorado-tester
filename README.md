@@ -299,7 +299,10 @@ rather than assuming a filename or a flat layout.
   if a mods case pulled in more than one, one per mod), parsed from that
   case's log — only present when Dorado had to download the model fresh
   (nothing to parse if it was already cached under `--models_directory`), so
-  this can legitimately be blank on a warm cache. Plus `dorado_summary`-
+  this can legitimately be blank on a warm cache. `gpu` is the GPU(s) Dorado
+  reported using (e.g. `Quadro GV100`; `;`-joined for `--device cuda:all`
+  with more than one), also parsed from the log — blank on a CPU-only run,
+  since there's nothing to parse then. Plus `dorado_summary`-
   derived stats: `num_reads`/`num_bases` (+ `_passed` variants), `n50`,
   `read_len_{mean,median,mode,min,max}`, `{mean,median}_qscore`,
   `qscore_{min,max}`, plus poly(A) median/mean for the RNA poly(A) case.
@@ -328,6 +331,52 @@ re-run standalone:
 
 ```
 python -m dorado_tester.aggregate --output_dir ./results
+```
+
+## Comparing model versions
+
+`run_tests.py` compares Dorado *executables* at a fixed speed alias (Dorado
+picks whichever model version it thinks is best for each build).
+`run_compare_models.py` instead holds the Dorado executable fixed and
+compares specific, pinned **model versions** against each other — e.g. is
+`dna_r10.4.1_e8.2_400bps_hac@v5.0.0` meaningfully different from
+`...@v6.0.0`? Model names must be given in full (no speed-alias resolution)
+— see [the model list](https://software-docs.nanoporetech.com/dorado/latest/models/list/)
+or `<dorado> download --list`.
+
+```
+python run_compare_models.py \
+  --path_to_dorado /opt/dorado-2.0.1/bin/dorado \
+  --test dna_singleplex_simplex_hac \
+  --models dna_r10.4.1_e8.2_400bps_hac@v5.2.0,dna_r10.4.1_e8.2_400bps_hac@v6.0.0 \
+  --path_to_pod5 /data/dna
+```
+
+| Argument | Required | Meaning |
+|---|---|---|
+| `--path_to_dorado` | yes | Path to the Dorado executable (kept constant across the comparison). |
+| `--test` | no | One of `dna_singleplex_simplex_hac`, `dna_singleplex_simplex_sup`, `dna_multiplex_simplex_hac`, `dna_multiplex_simplex_sup`, and the `rna_*` equivalents. Default `dna_singleplex_simplex_hac`. |
+| `--models` | yes | 2+ full versioned model names, comma-separated. Must match `--test`'s analyte (`dna`/`rna`) and speed (`_hac@`/`_sup@`) — checked before anything runs. If a model doesn't actually exist, Dorado itself errors when asked to fetch/load it; that failure is recorded and the run moves on to the next model, same as any other case. |
+| `--mods` | no | Comma-separated mod codes appended to every model in `--models`, e.g. `5mCG_5hmCG,6mA`. |
+| `--path_to_pod5` | yes | Directory containing `multiplex/`/`singleplex/`, same layout as `run_tests.py`. One flag, not two — `--test` already says which analyte, so which one it needs (and validates) follows from that. |
+| `--kit_name` | no | Only used if `--test` is a multiplex test (adds `--kit-name`, same as `run_tests.py`). One flag, not `--dna_kit`/`--rna_kit` — defaults to `SQK-NBD114-24` for DNA tests / `SQK-DRB004-24` for RNA tests if omitted. |
+| `--output_dir` | no | Default `./results_compare`. |
+| `--device`, `--models_directory`, `--strict` | no | Same meaning as `run_tests.py`. |
+
+Output goes to `results_compare/<test>/<v1-v2-...>/` (never reused — an
+existing folder gets a fresh `_1`, `_2`, ... suffix, same as `run_tests.py`),
+with one subfolder + log per model version and a `manifest.json` covering
+the whole comparison. It doesn't (yet) produce a stats CSV like
+`run_tests.py` — `aggregate.py`'s qscore-threshold lookup currently expects
+a bare `hac`/`sup`/`fast` alias, not a full pinned model name, so wiring
+that in needs a small adjustment first.
+
+`tests/test_run_compare_models.py` covers its argument parsing/validation
+(no real Dorado executable or POD5 data needed — stdlib `unittest`, no extra
+dependency to install):
+
+```
+python tests/test_run_compare_models.py
 ```
 
 This project is licensed under the GNU General Public License v3.0.

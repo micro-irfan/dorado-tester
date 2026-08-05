@@ -182,6 +182,7 @@ Columns per test case:
   - `resolved_models`: the actual versioned model(s) that speed alias resolved to at runtime (e.g. `dna_r10.4.1_e8.2_400bps_hac@v6.0.0`), `;`-joined if a mods case pulled in more than one (base + each mod). Parsed from the case's log via `stats.extract_resolved_models` (looks for `downloading <model>` lines — the only place Dorado prints the resolved name). Only present when the model wasn't already cached under `--models-directory`; blank on a warm cache, since there's no other reliable line to fall back to.
 - `status` (`success` / `failed`) — see `manifest.json` for the error message on failure
 - `wall_time_sec` (measured around each Dorado invocation)
+- `gpu`: the GPU(s) Dorado reported using (e.g. `Quadro GV100`; `;`-joined if more than one, e.g. `--device cuda:all`), parsed from the case's log via `stats.extract_gpu_devices` (looks for `cuda:<n> - <name>` lines, printed under "Using CUDA devices:"). Blank on a CPU-only run (`--device cpu`), since Dorado doesn't print any such line then — that's expected, not a parsing gap.
 - `num_reads`
 - `num_reads_passed` (Qscore of >9 for HAC and >12 for SUP)
 - `num_bases`
@@ -217,6 +218,7 @@ Failed test cases still get a row (with `status=failed` and NaN stats) so the co
 ├── README.md
 ├── run_tests.py            # CLI entry point (argparse), orchestrates the matrix
 ├── download_pod5.py        # fetches sample POD5s from ont-open-data into the expected layout
+├── run_compare_models.py   # compares pinned model versions (not Dorado builds) for one test
 ├── dorado_tester/
 │   ├── __init__.py
 │   ├── cli.py              # argument parsing + input validation

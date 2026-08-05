@@ -18,7 +18,7 @@ from .log import get_logger, setup_logging
 # both are already recorded per-case in manifest.json.
 STATS_COLUMNS = [
     "dorado_version", "analyte", "library", "test_name", "model", "resolved_models", "mods",
-    "status", "wall_time_sec",
+    "status", "wall_time_sec", "gpu",
     "num_reads", "num_reads_passed", "num_bases", "num_bases_passed",
     "n50", "read_len_mean", "read_len_median", "read_len_mode",
     "read_len_min", "read_len_max",
@@ -96,6 +96,7 @@ def build_case_row(dorado_path: str, dorado_version: str, case: dict) -> dict:
         "mods": ";".join(case.get("mods") or []),
         "status": case["status"],
         "wall_time_sec": case["wall_time_sec"],
+        "gpu": ";".join(stats.extract_gpu_devices(Path(case["log_path"]))),
     }
     row.update(_empty_case_stats())
 

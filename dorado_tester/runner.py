@@ -77,7 +77,7 @@ def resolve_compatible_mods(configured_mods: list[str], available_output: str | 
 
 # --- test matrix construction -------------------------------------------
 
-def _basecaller_builder(
+def basecaller_builder(
     dorado_path: str,
     model: str,
     data_dir: Path,
@@ -189,7 +189,7 @@ def build_test_matrix(
             cases.append(TestCase(
                 analyte=analyte, library=library, test_name=f"{analyte.lower()}_{library}_simplex_{variant}",
                 output_dir=variant_out,
-                command_builders=[_basecaller_builder(
+                command_builders=[basecaller_builder(
                     dorado_path, variant, lib_dir, variant_out,
                     kit_name=kit_name,
                     models_directory=models_directory, device=device,
@@ -203,7 +203,7 @@ def build_test_matrix(
                 cases.append(TestCase(
                     analyte=analyte, library=library, test_name=f"{analyte.lower()}_{library}_mods_{variant}",
                     output_dir=mods_out,
-                    command_builders=[_basecaller_builder(
+                    command_builders=[basecaller_builder(
                         dorado_path, model_with_mods, lib_dir, mods_out,
                         kit_name=kit_name,
                         models_directory=models_directory, device=device,
@@ -224,7 +224,7 @@ def build_test_matrix(
                     analyte=analyte, library=library,
                     test_name=f"{analyte.lower()}_{library}_mods_{slug}_{variant}",
                     output_dir=mods_out,
-                    command_builders=[_basecaller_builder(
+                    command_builders=[basecaller_builder(
                         dorado_path, model_with_mods, lib_dir, mods_out,
                         kit_name=kit_name,
                         models_directory=models_directory, device=device,
@@ -249,7 +249,7 @@ def build_test_matrix(
                         analyte="DNA", library=library, test_name=f"dna_multiplex_barcode_kit_{variant}",
                         output_dir=barcode_out,
                         command_builders=[
-                            _basecaller_builder(
+                            basecaller_builder(
                                 dorado_path, variant, lib_dir, barcode_out,
                                 no_trim=True,
                                 models_directory=models_directory, device=device,
@@ -267,7 +267,7 @@ def build_test_matrix(
                             test_name=f"dna_multiplex_barcode_kit_mods_{variant}",
                             output_dir=barcode_mods_out,
                             command_builders=[
-                                _basecaller_builder(
+                                basecaller_builder(
                                     dorado_path, barcode_model_with_mods, lib_dir, barcode_mods_out,
                                     no_trim=True,
                                     models_directory=models_directory, device=device,
@@ -282,7 +282,7 @@ def build_test_matrix(
                 cases.append(TestCase(
                     analyte="DNA", library=library, test_name="dna_singleplex_no_trim",
                     output_dir=no_trim_out,
-                    command_builders=[_basecaller_builder(
+                    command_builders=[basecaller_builder(
                         dorado_path, primary_variant, lib_dir, no_trim_out, no_trim=True,
                         models_directory=models_directory, device=device,
                     )],
@@ -303,7 +303,7 @@ def build_test_matrix(
             cases.append(TestCase(
                 analyte="RNA", library=library, test_name=f"rna_{library}_poly_a",
                 output_dir=poly_a_out,
-                command_builders=[_basecaller_builder(
+                command_builders=[basecaller_builder(
                     dorado_path, primary_variant, lib_dir, poly_a_out, estimate_poly_a=True,
                     kit_name=rna_kit_name,
                     models_directory=models_directory, device=device,
@@ -436,3 +436,17 @@ def write_manifest(
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(payload, fh, indent=2)
+
+
+def resolve_output_root(base_dir: Path, name: str) -> Path:
+    """Never reuses an existing base_dir/name/ -- always picks a fresh
+    name_1, name_2, ... instead, so one run's output can't get mixed into
+    another's manifest.json/logs. Shared by run_tests.py (name = Dorado
+    version) and run_compare_models.py (name = model-version label)."""
+    candidate = base_dir / name
+    if not candidate.exists():
+        return candidate
+    i = 1
+    while (base_dir / f"{name}_{i}").exists():
+        i += 1
+    return base_dir / f"{name}_{i}"

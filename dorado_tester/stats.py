@@ -176,3 +176,21 @@ def extract_resolved_models(log_path: Path) -> list[str]:
         if model not in seen:
             seen.append(model)
     return seen
+
+
+# e.g. "[info] Using CUDA devices:" followed by one line per device:
+# "[info] cuda:0 - Quadro GV100". Nothing to match on a CPU-only run (no
+# such lines at all), so this legitimately comes back empty for --device cpu.
+_GPU_DEVICE_RE = re.compile(r"cuda:\d+ - (.+)")
+
+
+def extract_gpu_devices(log_path: Path) -> list[str]:
+    if not log_path.is_file():
+        return []
+    text = log_path.read_text(encoding="utf-8", errors="replace")
+    seen: list[str] = []
+    for match in _GPU_DEVICE_RE.finditer(text):
+        gpu = match.group(1).strip()
+        if gpu not in seen:
+            seen.append(gpu)
+    return seen

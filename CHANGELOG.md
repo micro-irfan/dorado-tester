@@ -4,6 +4,29 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- `run_compare_models.py`: compares specific, pinned Dorado model versions
+  (not speed aliases) for one basecalling test, against a single Dorado
+  executable — e.g. `dna_..._hac@v5.0.0` vs `dna_..._hac@v6.0.0`. Takes
+  `--test` (one of the 8 `{dna,rna}_{singleplex,multiplex}_simplex_{hac,sup}`
+  tests), `--models` (2+ full versioned model names, comma-separated), and
+  optional `--mods` (comma-separated codes applied to every model). A single
+  `--path_to_pod5`/`--kit_name` (not the dual `--path_to_dna_pod5`/
+  `--path_to_rna_pod5`/`--dna_kit`/`--rna_kit` of `run_tests.py`), since
+  `--test` already implies the analyte. Reuses `run_tests.py`'s per-case
+  isolation, logging, and `manifest.json` output; writes to
+  `results_compare/<test>/<v1-v2-...>/`, never reusing an existing folder
+  (same `_1`/`_2` suffixing as `run_tests.py`). Not yet tested end to end.
+- `tests/test_run_compare_models.py`: `unittest`-based coverage of
+  `run_compare_models.py`'s argument parsing/validation (no real Dorado
+  executable or POD5 data needed).
+- `gpu` column in `stats_<version>.csv`: the GPU(s) Dorado reported using
+  (e.g. `Quadro GV100`; `;`-joined for `--device cuda:all` with more than
+  one), parsed from each case's log via `stats.extract_gpu_devices` (looks
+  for `cuda:<n> - <name>` lines) — same pattern as `resolved_models`. Blank
+  on a CPU-only run, since Dorado prints no such line then.
+
 ## [1.0.0] - 2026-08-04
 
 ### Added
