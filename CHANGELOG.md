@@ -15,8 +15,10 @@ All notable changes to this project are documented in this file.
   `--path_to_pod5`/`--kit_name` (not the dual `--path_to_dna_pod5`/
   `--path_to_rna_pod5`/`--dna_kit`/`--rna_kit` of `run_tests.py`), since
   `--test` already implies the analyte. Reuses `run_tests.py`'s per-case
-  isolation, logging, and `manifest.json` output; writes to
-  `results_compare/<test>/<v1-v2-...>/`, never reusing an existing folder
+  isolation, logging, `manifest.json`, and `aggregate.py` stats CSV output
+  (`stats.get_qscore_threshold` now also recognizes a speed marker inside a
+  full pinned model name, not just a bare `hac`/`sup`/`fast` alias); writes
+  to `results_compare/<test>/<v1-v2-...>/`, never reusing an existing folder
   (same `_1`/`_2` suffixing as `run_tests.py`). Not yet tested end to end.
 - `tests/test_run_compare_models.py`: `unittest`-based coverage of
   `run_compare_models.py`'s argument parsing/validation (no real Dorado

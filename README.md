@@ -366,10 +366,13 @@ python run_compare_models.py \
 Output goes to `results_compare/<test>/<v1-v2-...>/` (never reused — an
 existing folder gets a fresh `_1`, `_2`, ... suffix, same as `run_tests.py`),
 with one subfolder + log per model version and a `manifest.json` covering
-the whole comparison. It doesn't (yet) produce a stats CSV like
-`run_tests.py` — `aggregate.py`'s qscore-threshold lookup currently expects
-a bare `hac`/`sup`/`fast` alias, not a full pinned model name, so wiring
-that in needs a small adjustment first.
+the whole comparison. It also produces a `stats_<dorado_version>.csv` in
+that same folder — one row per model version compared, via the same
+`aggregate.py` used by `run_tests.py` (`stats.get_qscore_threshold` now
+also recognizes a speed marker inside a full pinned model name, e.g.
+`_hac@`, not just a bare `hac`/`sup`/`fast` alias). If `--test` is a
+multiplex test, a `stats_<dorado_version>_per_barcode.csv` is produced too,
+same as `run_tests.py`'s multiplex cases.
 
 `tests/test_run_compare_models.py` covers its argument parsing/validation
 (no real Dorado executable or POD5 data needed — stdlib `unittest`, no extra

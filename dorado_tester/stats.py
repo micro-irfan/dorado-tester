@@ -20,10 +20,17 @@ QSCORE_THRESHOLDS = {"fast": 8.0, "hac": 9.0, "sup": 12.0}
 
 
 def get_qscore_threshold(model: str) -> float:
+    """model is usually a bare speed alias ("hac"), but run_compare_models.py
+    records the full pinned name instead (e.g.
+    "dna_r10.4.1_e8.2_400bps_hac@v6.0.0") -- fall back to spotting the speed
+    marker inside it, same convention as run_compare_models._validate_models."""
     variant = model.split(",", 1)[0].strip().lower()
-    if variant not in QSCORE_THRESHOLDS:
-        raise ValueError(f"Unknown model variant for qscore threshold: {model!r}")
-    return QSCORE_THRESHOLDS[variant]
+    if variant in QSCORE_THRESHOLDS:
+        return QSCORE_THRESHOLDS[variant]
+    for speed, threshold in QSCORE_THRESHOLDS.items():
+        if f"_{speed}@" in variant:
+            return threshold
+    raise ValueError(f"Unknown model variant for qscore threshold: {model!r}")
 
 
 def run_summary(dorado_path: str, bam_path: str) -> pd.DataFrame:

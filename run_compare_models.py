@@ -19,7 +19,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from dorado_tester import dorado_commands, runner, version
+from dorado_tester import aggregate, dorado_commands, runner, version
 from dorado_tester.log import setup_logging
 
 # analyte, library, speed -- model-name validation, --kit-name, and the
@@ -207,6 +207,12 @@ def main(argv: list[str] | None = None) -> int:
     manifest_path = output_root / "manifest.json"
     runner.write_manifest(results, dorado_version, dorado_path, manifest_path)
     logger.info("Manifest written to %s", manifest_path)
+
+    try:
+        stats_csv_path = aggregate.aggregate_version(output_root)
+        logger.info("Stats written to %s", stats_csv_path)
+    except Exception as exc:
+        logger.error("Stats aggregation failed (test results above are unaffected): %s", exc)
 
     if args.strict and n_failed > 0:
         return 1
