@@ -117,17 +117,20 @@ def main(argv: list[str] | None = None) -> int:
             )
         cases = [c for c in cases if c.test_name not in to_exclude]
 
-    results = runner.run_all(cases, output_root)
+    results = runner.run_all(cases, output_root, dry_run=args.dry_run)
 
     n_success = sum(1 for r in results if r.status == "success")
-    n_failed = len(results) - n_success
-    if n_failed:
+    n_dry_run = sum(1 for r in results if r.status == "dry_run")
+    n_failed = len(results) - n_success - n_dry_run
+    if args.dry_run:
+        logger.info("Dry run complete: %d case(s) rendered, not executed.", n_dry_run)
+    elif n_failed:
         logger.warning("Completed: %d succeeded, %d failed.", n_success, n_failed)
     else:
         logger.info("Completed: %d succeeded, %d failed.", n_success, n_failed)
 
     manifest_path = output_root / "manifest.json"
-    runner.write_manifest(results, dorado_version, dorado_path, manifest_path)
+    runner.write_manifest(results, dorado_version, dorado_path, manifest_path, dry_run=args.dry_run)
     logger.info("Manifest written to %s", manifest_path)
 
     try:

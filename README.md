@@ -100,6 +100,7 @@ python run_tests.py \
 | `--rna_mod MODS [MODS ...]` | no | Test extra RNA mod combinations in parallel with (not instead of) the `config/mods.yaml`-derived default: `;`-separated groups, each a comma-separated set of mods combined in that one case, e.g. `--rna_mod "m6A,pseU;pseU"` adds two extra cases (m6A+pseU combined, pseU alone). Each is built into the matrix, suffixed by its mod combo, but **excluded from the default run** just like `dna_singleplex_no_trim` — select via `--only`/`--add_tests`. |
 | `--dna_mod MODS [MODS ...]` | no | Same as `--rna_mod`, but for DNA, e.g. `--dna_mod "4mC_5mC,6mA;5mC_5hmC,6mA"` tests both as extra parallel cases alongside the `config/mods.yaml` default (`5mCG_5hmCG,6mA`). `4mC_5mC`, `5mC_5hmC`, and `5mCG_5hmCG` all act on the same canonical base (C) — combine at most one per group, with a non-C mod like `6mA`. |
 | `--list_tests` | no | Print the `test_name` of every case the current arguments would run, then exit without running anything. Use this to find the name to pass to `--only`/`--add_tests`. |
+| `--dry_run` | no | Build the matrix and render every case's dorado command(s) — without launching dorado. Still writes `manifest.json` (`status: "dry_run"`, `wall_time_sec: null`) and per-case logs under `logs/` with the rendered command(s), plus the usual stats CSV (all-NaN rows, since nothing basecalled) — same downstream shape as a real run, so tooling that reads these outputs doesn't need a special case. A demux command that depends on a prior basecall step's actual output (bam file discovery) can't be fully resolved without that step having run; it's logged with a placeholder for the unresolved part rather than being skipped. |
 
 \* At least one of `--path_to_dna_pod5` / `--path_to_rna_pod5` must be given.
 
@@ -316,7 +317,17 @@ rather than assuming a filename or a flat layout.
   since there's nothing to parse then. Plus `dorado_summary`-
   derived stats: `num_reads`/`num_bases` (+ `_passed` variants), `n50`,
   `read_len_{mean,median,mode,min,max}`, `{mean,median}_qscore`,
-  `qscore_{min,max}`, plus poly(A) median/mean for the RNA poly(A) case.
+  `qscore_{min,max}`, plus poly(A) columns for any case run with
+  `--estimate-poly-a`: `polya_median`/`polya_mean`/`polya_min`/`polya_max`
+  (per-read, from the `pt:i:` BAM tag via `pysam`), and `polya_tails_called`/
+  `polya_tails_not_called`/`polya_avg_length_log` (Dorado's own run-level
+  call-rate summary, parsed from its log line, e.g. `PolyA tails called
+  112832, not called 13433, avg tail length 96` — a different figure than
+  `polya_mean`, since it's Dorado's own summary rather than derived from the
+  tag values here). Which cases get these is tracked explicitly via
+  `TestCase.estimate_poly_a` in `manifest.json`, not guessed from the test
+  name, so it also works for `run_compare_models.py --poly_a` cases (named
+  after the version tag, not `*_poly_a`).
   A read counts as "passed" if its `mean_qscore_template` is above 9 (hac),
   12 (sup), or 8 (fast, only relevant when `--ignore` drops both hac and sup).
 - `results/<version>/stats_<version>_per_barcode.csv` — per-barcode breakdown
@@ -381,7 +392,7 @@ python run_compare_models.py \
 | `--kit_name` | no | Only used if `--test` is a multiplex test (adds `--kit-name`, same as `run_tests.py`). One flag, not `--dna_kit`/`--rna_kit` — defaults to `SQK-NBD114-24` for DNA tests / `SQK-DRB004-24` for RNA tests if omitted. |
 | `--poly_a` | no | Adds `--estimate-poly-a` to the basecall (poly(A) tail length in the `pt:i:` BAM tag). Only meaningful for RNA tests; ignored (with a warning) if `--test` is a DNA test. |
 | `--output_dir` | no | Default `./results_compare`. |
-| `--device`, `--models_directory`, `--strict` | no | Same meaning as `run_tests.py`. |
+| `--device`, `--models_directory`, `--strict`, `--dry_run` | no | Same meaning as `run_tests.py`. |
 
 Output goes to `results_compare/<test>/<v1-v2-...>/` (never reused — an
 existing folder gets a fresh `_1`, `_2`, ... suffix, same as `run_tests.py`),

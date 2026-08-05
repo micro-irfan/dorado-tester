@@ -184,6 +184,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--strict", action="store_true",
         help="Exit non-zero if any model failed.",
     )
+    parser.add_argument(
+        "--dry_run", action="store_true",
+        help="Render every model's dorado command(s) without launching dorado. Still writes "
+             "manifest.json (status 'dry_run', wall_time_sec null) and per-case logs under "
+             "logs/ containing the rendered command(s), plus the usual stats CSV (all-NaN "
+             "rows, since nothing basecalled).",
+    )
     args = parser.parse_args(argv)
 
     if not args.path_to_dorado.is_file():
@@ -284,19 +291,23 @@ def main(argv: list[str] | None = None) -> int:
                 modified_bases_models=modified_bases_models,
             )],
             model=model, mods=list(args.mods),
+            estimate_poly_a=estimate_poly_a,
         ))
 
-    results = runner.run_all(cases, output_root)
+    results = runner.run_all(cases, output_root, dry_run=args.dry_run)
 
     n_success = sum(1 for r in results if r.status == "success")
-    n_failed = len(results) - n_success
-    if n_failed:
+    n_dry_run = sum(1 for r in results if r.status == "dry_run")
+    n_failed = len(results) - n_success - n_dry_run
+    if args.dry_run:
+        logger.info("Dry run complete: %d case(s) rendered, not executed.", n_dry_run)
+    elif n_failed:
         logger.warning("Completed: %d succeeded, %d failed.", n_success, n_failed)
     else:
         logger.info("Completed: %d succeeded, %d failed.", n_success, n_failed)
 
     manifest_path = output_root / "manifest.json"
-    runner.write_manifest(results, dorado_version, dorado_path, manifest_path)
+    runner.write_manifest(results, dorado_version, dorado_path, manifest_path, dry_run=args.dry_run)
     logger.info("Manifest written to %s", manifest_path)
 
     try:

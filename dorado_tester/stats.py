@@ -113,9 +113,19 @@ def collect_polya_lengths(bam_paths: list[Path]) -> list[int]:
 
 def polya_stats(pt_values: list[int]) -> dict:
     if not pt_values:
-        return {"polya_mean": float("nan"), "polya_median": float("nan")}
+        return {
+            "polya_mean": float("nan"),
+            "polya_median": float("nan"),
+            "polya_min": float("nan"),
+            "polya_max": float("nan"),
+        }
     series = pd.Series(pt_values)
-    return {"polya_mean": float(series.mean()), "polya_median": float(series.median())}
+    return {
+        "polya_mean": float(series.mean()),
+        "polya_median": float(series.median()),
+        "polya_min": float(series.min()),
+        "polya_max": float(series.max()),
+    }
 
 
 def compute_bam_stats(
@@ -201,3 +211,31 @@ def extract_gpu_devices(log_path: Path) -> list[str]:
         if gpu not in seen:
             seen.append(gpu)
     return seen
+
+
+# e.g. "[info] > PolyA tails called 112832, not called 13433, avg tail
+# length 96" -- Dorado's own one-line poly(A) call-rate summary, printed to
+# its log during an --estimate-poly-a run. Distinct from polya_mean/
+# polya_median above (those are per-read, computed from the pt:i: BAM tag
+# via pysam) -- this is a run-level summary Dorado prints itself, not
+# something `dorado summary`'s TSV or the BAM tags carry.
+_POLYA_LOG_RE = re.compile(
+    r"PolyA tails called (\d+), not called (\d+), avg tail length (\d+)"
+)
+
+
+def extract_polya_log_stats(log_path: Path) -> dict:
+    result = {
+        "polya_tails_called": float("nan"),
+        "polya_tails_not_called": float("nan"),
+        "polya_avg_length_log": float("nan"),
+    }
+    if not log_path.is_file():
+        return result
+    text = log_path.read_text(encoding="utf-8", errors="replace")
+    match = _POLYA_LOG_RE.search(text)
+    if match:
+        result["polya_tails_called"] = int(match.group(1))
+        result["polya_tails_not_called"] = int(match.group(2))
+        result["polya_avg_length_log"] = int(match.group(3))
+    return result

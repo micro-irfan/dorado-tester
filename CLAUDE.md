@@ -190,7 +190,20 @@ Columns per test case:
 - `n50` (read-length N50)
 - `read_len_mean`, `read_len_median`, `read_len_mode`, `read_len_min`, `read_len_max`
 - `mean_qscore`, `median_qscore`, `qscore_min`, `qscore_max` (all of per-read `mean_qscore_template`)
-- `polya_median` / `polya_mean` (RNA poly(A) cases only, from `pt:i:` tag)
+- `polya_median` / `polya_mean` / `polya_min` / `polya_max` (RNA poly(A) cases only, from `pt:i:` tag)
+- `polya_tails_called` / `polya_tails_not_called` / `polya_avg_length_log`
+  (RNA poly(A) cases only): Dorado's own run-level poly(A) call-rate summary,
+  printed to its log (not the `dorado summary` TSV or the BAM tags), e.g.
+  `PolyA tails called 112832, not called 13433, avg tail length 96`. Parsed
+  via `stats.extract_polya_log_stats`, same pattern as `resolved_models`/
+  `gpu`. Distinct from `polya_mean`/`polya_median` above, which are computed
+  per-read from the `pt:i:` tag via `pysam` — this is Dorado's own summary
+  across the whole run, not derived from the tag values in this repo.
+  A case is only recognized as a poly(A) case via `TestCase.estimate_poly_a`
+  (recorded explicitly in `manifest.json`), not by sniffing `test_name` for
+  a `_poly_a` suffix — `run_compare_models.py`'s cases are named after the
+  version tag being compared, so a name-based check would silently miss
+  them there.
 
 Sourcing:
 
@@ -423,6 +436,18 @@ Since there is a lot of versions, run_tests.py by default should select the late
 [2026-07-02 16:34:54.107] [info]  - dna_r10.4.1_e8.2_5khz_stereo@v1.5
 
 ```
+
+**RNA model naming, v6.0.0+ vs the model list website:** the
+[model list page](https://software-docs.nanoporetech.com/dorado/latest/models/list/)
+lists the v6.0.0 RNA model as `rna004_130bps_hac@v6.0.0` (matching the
+`rna004_130bps_<speed>@<version>` pattern every earlier RNA version uses,
+e.g. `rna004_130bps_hac@v5.3.0`), but `dorado download --list` output above
+shows v6.0.0 actually dropped the `130bps` segment: `rna004_hac@v6.0.0`,
+`rna004_sup@v6.0.0`, `rna004_fast@v6.0.0`. Always use the `download --list`
+form (`rna004_hac@v6.0.0`, not `rna004_130bps_hac@v6.0.0`) as the pinned
+model input — e.g. to `run_compare_models.py --models` — since that's what
+Dorado itself resolves; a name copied straight from the website will fail
+for v6.0.0 specifically.
 
 ## Script to Prepare Pod5 Files 
 

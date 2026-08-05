@@ -37,14 +37,20 @@ class TestCase:
     # excluded from a default run, same as DEFAULT_EXCLUDED_TESTS, but can't be
     # listed there statically since their test_name depends on CLI input.
     default_excluded: bool = False
+    # Whether this case's basecall used --estimate-poly-a. Recorded explicitly
+    # (not inferred from test_name) so aggregate.py knows to read the pt:i:
+    # tag / poly(A) log line regardless of what the case happens to be named
+    # -- run_compare_models.py's cases are named after the version tag, not
+    # "..._poly_a", so a name-based check would silently miss them.
+    estimate_poly_a: bool = False
 
 
 @dataclass
 class TestResult:
     case: TestCase
-    status: str  # "success" or "failed"
+    status: str  # "success", "failed", or "dry_run"
     error_message: str | None
-    wall_time_sec: float
+    wall_time_sec: float | None  # None for a "dry_run" result
     commands_executed: list[str]
     log_path: Path
 
@@ -313,6 +319,7 @@ def build_test_matrix(
                     models_directory=models_directory, device=device,
                 )],
                 model=primary_variant,
+                estimate_poly_a=True,
             ))
 
     return cases
@@ -376,19 +383,59 @@ def execute_case(case: TestCase, logs_dir: Path) -> TestResult:
     )
 
 
-def run_all(cases: list[TestCase], output_root: Path) -> list[TestResult]:
+def dry_run_case(case: TestCase, logs_dir: Path) -> TestResult:
+    """Renders each command_builder without launching dorado or creating
+    case.output_dir. A builder that depends on a *prior* step's actual
+    filesystem output (e.g. _demux_builder discovering the basecaller's real
+    bam files) can't be resolved without that step having run -- rather than
+    treating that as a failure, its command is rendered with a placeholder
+    for the part that isn't knowable yet."""
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    log_path = logs_dir / f"{case.test_name}.log"
+
+    rendered_commands: list[str] = []
+    with open(log_path, "w", encoding="utf-8") as log_fh:
+        log_fh.write(f"[DRY RUN] {case.test_name}: not executed. Command(s) that would run:\n")
+        for builder in case.command_builders:
+            try:
+                cmd = builder(case.output_dir)
+                rendered = shlex.join(cmd)
+            except FileNotFoundError as exc:
+                rendered = (
+                    f"[unresolved in --dry_run -- depends on a prior step's actual output] {exc}"
+                )
+            rendered_commands.append(rendered)
+            log_fh.write(f"$ {rendered}\n")
+
+    return TestResult(
+        case=case,
+        status="dry_run",
+        error_message=None,
+        wall_time_sec=None,
+        commands_executed=rendered_commands,
+        log_path=log_path,
+    )
+
+
+def run_all(cases: list[TestCase], output_root: Path, dry_run: bool = False) -> list[TestResult]:
     logs_dir = output_root / "logs"
     results: list[TestResult] = []
     total = len(cases)
+    prefix = "[DRY RUN] " if dry_run else ""
     logger.info(
-        "Running %d test case(s): %s",
-        total, ", ".join(c.test_name for c in cases),
+        "%sRunning %d test case(s): %s",
+        prefix, total, ", ".join(c.test_name for c in cases),
     )
     for i, case in enumerate(cases, start=1):
         logger.info(
-            "[%d/%d] Running %s (%s %s, model=%s)",
-            i, total, case.test_name, case.analyte, case.library, case.model,
+            "%s[%d/%d] Running %s (%s %s, model=%s)",
+            prefix, i, total, case.test_name, case.analyte, case.library, case.model,
         )
+        if dry_run:
+            result = dry_run_case(case, logs_dir)
+            logger.info("[%d/%d] %s: dry run only, not executed", i, total, case.test_name)
+            results.append(result)
+            continue
         try:
             result = execute_case(case, logs_dir)
         except Exception as exc:  # a test case must never abort the run
@@ -414,12 +461,14 @@ def run_all(cases: list[TestCase], output_root: Path) -> list[TestResult]:
 
 
 def write_manifest(
-    results: list[TestResult], dorado_version: DoradoVersion, dorado_path: str, path: Path
+    results: list[TestResult], dorado_version: DoradoVersion, dorado_path: str, path: Path,
+    dry_run: bool = False,
 ) -> None:
     payload = {
         "dorado_path": dorado_path,
         "dorado_version": dorado_version.raw,
         "dorado_version_safe": dorado_version.safe,
+        "dry_run": dry_run,
         "cases": [
             {
                 "analyte": r.case.analyte,
@@ -427,6 +476,7 @@ def write_manifest(
                 "test_name": r.case.test_name,
                 "model": r.case.model,
                 "mods": r.case.mods,
+                "estimate_poly_a": r.case.estimate_poly_a,
                 "output_dir": str(r.case.output_dir),
                 "status": r.status,
                 "error_message": r.error_message,

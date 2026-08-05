@@ -23,7 +23,8 @@ STATS_COLUMNS = [
     "n50", "read_len_mean", "read_len_median", "read_len_mode",
     "read_len_min", "read_len_max",
     "mean_qscore", "median_qscore", "qscore_min", "qscore_max",
-    "polya_median", "polya_mean",
+    "polya_median", "polya_mean", "polya_min", "polya_max",
+    "polya_tails_called", "polya_tails_not_called", "polya_avg_length_log",
 ]
 
 logger = get_logger()
@@ -52,6 +53,11 @@ def _empty_case_stats() -> dict:
         "qscore_max": float("nan"),
         "polya_median": float("nan"),
         "polya_mean": float("nan"),
+        "polya_min": float("nan"),
+        "polya_max": float("nan"),
+        "polya_tails_called": float("nan"),
+        "polya_tails_not_called": float("nan"),
+        "polya_avg_length_log": float("nan"),
     }
 
 
@@ -100,6 +106,12 @@ def build_case_row(dorado_path: str, dorado_version: str, case: dict) -> dict:
     }
     row.update(_empty_case_stats())
 
+    estimate_poly_a = bool(case.get("estimate_poly_a"))
+    if estimate_poly_a:
+        # Dorado's own log line, printed regardless of case status -- kept
+        # outside the success gate below, same as resolved_models/gpu above.
+        row.update(stats.extract_polya_log_stats(Path(case["log_path"])))
+
     if case["status"] != "success":
         return row
 
@@ -112,7 +124,7 @@ def build_case_row(dorado_path: str, dorado_version: str, case: dict) -> dict:
     try:
         row.update(stats.compute_bam_stats(
             dorado_path, bam_paths, case["model"],
-            estimate_poly_a=case["test_name"].endswith("_poly_a"),
+            estimate_poly_a=estimate_poly_a,
         ))
     except Exception as exc:
         row["status"] = "failed"
@@ -134,8 +146,13 @@ def build_per_barcode_rows(dorado_path: str, dorado_version: str, case: dict) ->
             "resolved_models": ";".join(stats.extract_resolved_models(Path(case["log_path"]))),
         }
         row.update(_empty_case_stats())
+        estimate_poly_a = bool(case.get("estimate_poly_a"))
+        if estimate_poly_a:
+            row.update(stats.extract_polya_log_stats(Path(case["log_path"])))
         try:
-            row.update(stats.compute_bam_stats(dorado_path, bam_paths, case["model"]))
+            row.update(stats.compute_bam_stats(
+                dorado_path, bam_paths, case["model"], estimate_poly_a=estimate_poly_a,
+            ))
         except Exception as exc:
             logger.warning("%s [%s]: stats computation failed: %s", case["test_name"], barcode, exc)
         rows.append(row)

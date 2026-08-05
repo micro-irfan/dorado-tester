@@ -106,6 +106,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Print the test_name of every case the current arguments would run, then exit "
              "without running anything.",
     )
+    parser.add_argument(
+        "--dry_run",
+        action="store_true",
+        help="Build the test matrix and render every case's dorado command(s) without "
+             "launching dorado. Still writes manifest.json (status 'dry_run', "
+             "wall_time_sec null) and per-case logs under logs/ containing the rendered "
+             "command(s), plus the usual stats CSV (all-NaN rows, since nothing basecalled). "
+             "A demux command that depends on a prior basecall step's actual output can't be "
+             "fully resolved without that step having run; it's logged with a placeholder "
+             "for the unresolved part instead of being skipped.",
+    )
     args = parser.parse_args(argv)
 
     args.only = _split_comma_list(args.only)

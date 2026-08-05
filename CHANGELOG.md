@@ -4,7 +4,32 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- `polya_median`/`polya_mean` weren't populated in `stats_<version>.csv` for
+  `run_compare_models.py --poly_a` cases, even though `--estimate-poly-a`
+  was in the executed command and Dorado's log confirmed poly(A) was
+  estimated. Root cause: `aggregate.build_case_row` decided whether to read
+  the `pt:i:` tag by checking `case["test_name"].endswith("_poly_a")` —
+  true for `run_tests.py`'s dedicated `rna_<library>_poly_a` case, but
+  `run_compare_models.py`'s cases are named after the version tag being
+  compared (e.g. `v6.0.0`), so the check silently never matched. Fixed by
+  adding an explicit `TestCase.estimate_poly_a` field, set at case
+  construction and recorded in `manifest.json`, that `build_case_row`/
+  `build_per_barcode_rows` read instead of inferring from the name.
+
 ### Added
+
+- `polya_min`/`polya_max` columns alongside the existing `polya_median`/
+  `polya_mean` in `stats_<version>.csv` (and the per-barcode CSV) — same
+  source (`stats.polya_stats`, per-read `pt:i:` BAM tag via `pysam`).
+- `polya_tails_called`, `polya_tails_not_called`, `polya_avg_length_log`
+  columns in `stats_<version>.csv` (and the per-barcode CSV): Dorado's own
+  run-level poly(A) call-rate summary, parsed from its log line (e.g.
+  `PolyA tails called 112832, not called 13433, avg tail length 96`) via
+  the new `stats.extract_polya_log_stats`, same pattern as
+  `resolved_models`/`gpu`. Distinct from `polya_mean`/`polya_median`, which
+  are computed per-read from the `pt:i:` BAM tag.
 
 - `run_compare_models.py`: compares specific, pinned Dorado model versions
   (not speed aliases) for one basecalling test, against a single Dorado
@@ -39,6 +64,21 @@ All notable changes to this project are documented in this file.
 - `tests/test_run_compare_models.py`: `unittest`-based coverage of
   `run_compare_models.py`'s argument parsing/validation (no real Dorado
   executable or POD5 data needed).
+- `--dry_run` (both `run_tests.py` and `run_compare_models.py`): builds the
+  matrix/case list and renders every case's dorado command(s) without
+  launching dorado. Reuses the normal `manifest.json`/logs/stats-CSV
+  pipeline unchanged — each case gets `status: "dry_run"`,
+  `wall_time_sec: null`, and its would-be command(s) written to the usual
+  `logs/<test_name>.log`; `aggregate.py` already treats any non-`"success"`
+  status as an all-NaN stats row, so the stats CSV comes out with no
+  special-casing needed. `manifest.json` also gets a top-level `"dry_run"`
+  boolean. A demux command that depends on a prior basecall step's actual
+  output (recursive bam discovery) can't be fully resolved without that
+  step having run — `runner.dry_run_case` renders it with a placeholder for
+  the unresolved part (`[unresolved in --dry_run -- ...]`) instead of
+  treating it as a failure. `n_failed`'s success/failed accounting in both
+  scripts' `main()` now excludes `dry_run` results, so `--strict` doesn't
+  misfire on a dry run.
 - `--dna_mod` (`run_tests.py`): mirrors `--rna_mod`, but for the DNA
   `*_mods_hac`/`*_mods_sup` cases — `;`-separated groups, each a
   comma-separated set of mods, added alongside (not replacing) the
