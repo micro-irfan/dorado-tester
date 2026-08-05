@@ -19,7 +19,19 @@ All notable changes to this project are documented in this file.
   (`stats.get_qscore_threshold` now also recognizes a speed marker inside a
   full pinned model name, not just a bare `hac`/`sup`/`fast` alias); writes
   to `results_compare/<test>/<v1-v2-...>/`, never reusing an existing folder
-  (same `_1`/`_2` suffixing as `run_tests.py`). Not yet tested end to end.
+  (same `_1`/`_2` suffixing as `run_tests.py`).
+  - `--mods`: verified against v2.1.0, a bare mod code appended to an
+    already-pinned `model@version` doesn't resolve the way it does against a
+    floating `hac`/`sup` alias (`'<code>' is not a recognised model name`,
+    even for a valid, non-conflicting code). Each code is now resolved to
+    its highest available fully-qualified mod model name *for that exact
+    pinned base model* (via `dorado download --list`) and passed through
+    `--modified-bases-models` (new `dorado_commands`/`runner.basecaller_builder`
+    parameter) instead of the model-complex comma form. A model missing a
+    requested mod is skipped (warned), not a hard failure. Two codes that
+    look like they target the same canonical base (e.g. `5mC_5hmC` +
+    `5mCG_5hmCG`, both C) are now rejected upfront with a clear error,
+    before anything runs.
 - `tests/test_run_compare_models.py`: `unittest`-based coverage of
   `run_compare_models.py`'s argument parsing/validation (no real Dorado
   executable or POD5 data needed).

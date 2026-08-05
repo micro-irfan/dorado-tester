@@ -88,6 +88,7 @@ def basecaller_builder(
     estimate_poly_a: bool = False,
     models_directory: Path | None = None,
     device: str | None = None,
+    modified_bases_models: str | None = None,
 ) -> CommandBuilder:
     def _build(_out_dir: Path) -> list[str]:
         return dorado_commands.basecaller_command(
@@ -100,6 +101,7 @@ def basecaller_builder(
             estimate_poly_a=estimate_poly_a,
             models_directory=str(models_directory) if models_directory else None,
             device=device,
+            modified_bases_models=modified_bases_models,
         )
 
     return _build

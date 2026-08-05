@@ -34,6 +34,7 @@ def basecaller_command(
     estimate_poly_a: bool = False,
     models_directory: str | None = None,
     device: str | None = None,
+    modified_bases_models: str | None = None,
 ) -> list[str]:
     cmd = [dorado_path, "basecaller", model, data_dir, "-o", output_dir]
     if kit_name:
@@ -42,6 +43,13 @@ def basecaller_command(
         cmd.append("--no-trim")
     if estimate_poly_a:
         cmd.append("--estimate-poly-a")
+    if modified_bases_models:
+        # Comma-joined, fully-qualified mod model name(s), e.g.
+        # "dna_r10.4.1_e8.2_400bps_hac@v5.2.0_5mCG_5hmCG@v2". Distinct from
+        # embedding bare mod codes into `model` via comma (hac,5mCG_5hmCG):
+        # verified that only resolves against a floating speed alias, not a
+        # pinned model@version -- see run_compare_models.py.
+        cmd += ["--modified-bases-models", modified_bases_models]
     if models_directory:
         cmd += ["--models-directory", models_directory]
     if device:
