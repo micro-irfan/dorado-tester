@@ -171,6 +171,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
              "to the basecall). Defaults to SQK-NBD114-24 for DNA / SQK-DRB004-24 for RNA "
              "tests if omitted.",
     )
+    parser.add_argument(
+        "--poly_a", action="store_true",
+        help="Add --estimate-poly-a to the basecall (poly(A) tail length written to the "
+             "pt:i: BAM tag). Only meaningful for RNA tests; ignored (with a warning) if "
+             "--test is a DNA test.",
+    )
     parser.add_argument("--output_dir", type=Path, default=Path("results_compare"))
     parser.add_argument("--device", default="auto")
     parser.add_argument("--models_directory", type=Path, default=None)
@@ -248,6 +254,10 @@ def main(argv: list[str] | None = None) -> int:
     if library == "multiplex":
         kit_name = args.kit_name or DEFAULT_KIT_NAMES[analyte]
 
+    estimate_poly_a = args.poly_a and analyte == "RNA"
+    if args.poly_a and analyte == "DNA":
+        logger.warning("--poly_a is ignored for DNA tests (--test %s)", args.test)
+
     cases = []
     for model, tag in zip(args.models, version_tags):
         modified_bases_models = None
@@ -269,7 +279,7 @@ def main(argv: list[str] | None = None) -> int:
             output_dir=case_out,
             command_builders=[runner.basecaller_builder(
                 dorado_path, model, lib_dir, case_out,
-                kit_name=kit_name,
+                kit_name=kit_name, estimate_poly_a=estimate_poly_a,
                 models_directory=models_directory, device=args.device,
                 modified_bases_models=modified_bases_models,
             )],

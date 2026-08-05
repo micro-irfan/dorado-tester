@@ -32,6 +32,10 @@ All notable changes to this project are documented in this file.
     look like they target the same canonical base (e.g. `5mC_5hmC` +
     `5mCG_5hmCG`, both C) are now rejected upfront with a clear error,
     before anything runs.
+  - `--poly_a`: adds `--estimate-poly-a` to the basecall for that comparison
+    run. Only meaningful for RNA tests (poly(A) tail length is written to
+    the `pt:i:` BAM tag); ignored, with a warning, if `--test` is a DNA
+    test.
 - `tests/test_run_compare_models.py`: `unittest`-based coverage of
   `run_compare_models.py`'s argument parsing/validation (no real Dorado
   executable or POD5 data needed).
