@@ -39,6 +39,26 @@ All notable changes to this project are documented in this file.
 - `tests/test_run_compare_models.py`: `unittest`-based coverage of
   `run_compare_models.py`'s argument parsing/validation (no real Dorado
   executable or POD5 data needed).
+- `--dna_mod` (`run_tests.py`): mirrors `--rna_mod`, but for the DNA
+  `*_mods_hac`/`*_mods_sup` cases — `;`-separated groups, each a
+  comma-separated set of mods, added alongside (not replacing) the
+  `config/mods.yaml` DNA default. Unlike RNA's `_2Ome*`-suffixed sup-only
+  mods, DNA's alternates (`4mC_5mC`, `5mC_5hmC`) exist for both `hac` and
+  `sup`, so one group covers both variants. `config/mods.yaml` documents the
+  recipe (`--dna_mod 4mC_5mC,6mA;5mC_5hmC,6mA`) — all three C-context DNA
+  mods (`4mC_5mC`, `5mC_5hmC`, `5mCG_5hmCG`) act on the same canonical base,
+  so at most one per group, paired with a non-C mod like `6mA`.
+- `--poly_a` (`run_compare_models.py`): adds `--estimate-poly-a` to the
+  basecall for that comparison run. Only meaningful for RNA tests; ignored,
+  with a warning, if `--test` is a DNA test.
+- `config/mods.yaml`: documented (as comments, not new defaults) two fuller
+  RNA mod combos verified present in the `dorado download --list` catalog
+  at v5.2.0/v5.3.0/v6.0.0 — `m5C,m6A_DRACH,pseU` / `m5C,inosine_m6A,pseU`
+  for `hac`, and the `_2OmeC`/`_2OmeU`/`2OmeG`-suffixed sup equivalents for
+  `sup`. `m6A_DRACH` and `inosine_m6A(_2OmeA)` both act on adenine and can
+  never be combined, and are deliberately kept as two separate options
+  rather than picked for the baked-in default (`compatible_mods` stays
+  `m6A` for RNA / `5mCG_5hmCG,6mA` for DNA) — test either via `--rna_mod`.
 - `gpu` column in `stats_<version>.csv`: the GPU(s) Dorado reported using
   (e.g. `Quadro GV100`; `;`-joined for `--device cuda:all` with more than
   one), parsed from each case's log via `stats.extract_gpu_devices` (looks

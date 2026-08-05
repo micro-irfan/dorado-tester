@@ -89,6 +89,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
              "alone, pseU alone) instead of the one config/mods.yaml-derived case.",
     )
     parser.add_argument(
+        "--dna_mod",
+        nargs="+",
+        default=None,
+        metavar="MODS",
+        help="Same as --rna_mod, but for the DNA *_mods_hac/*_mods_sup cases, e.g. "
+             "'--dna_mod 4mC_5mC,6mA;5mC_5hmC,6mA' runs both as separate parallel cases "
+             "alongside the config/mods.yaml default (5mCG_5hmCG+6mA). 4mC_5mC, 5mC_5hmC, "
+             "and 5mCG_5hmCG all act on the same canonical base (C), so combine at most "
+             "one of them per group with a non-C mod like 6mA -- Dorado rejects two "
+             "same-base mods in one model complex.",
+    )
+    parser.add_argument(
         "--list_tests",
         action="store_true",
         help="Print the test_name of every case the current arguments would run, then exit "
@@ -99,6 +111,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     args.only = _split_comma_list(args.only)
     args.add_tests = _split_comma_list(args.add_tests)
     args.rna_mod = _parse_mod_groups(args.rna_mod)
+    args.dna_mod = _parse_mod_groups(args.dna_mod)
 
     args.ignore = _split_comma_list(args.ignore)
     invalid = sorted(set(args.ignore) - IGNORABLE_VARIANTS)

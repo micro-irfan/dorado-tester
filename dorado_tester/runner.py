@@ -172,6 +172,7 @@ def build_test_matrix(
     rna_libraries: set[str],
     ignore: set[str] = frozenset(),
     rna_mod_extra_groups: list[list[str]] = (),
+    dna_mod_extra_groups: list[list[str]] = (),
 ) -> list[TestCase]:
     cases: list[TestCase] = []
     variants = resolve_model_variants(ignore)
@@ -242,6 +243,7 @@ def build_test_matrix(
             _add_core_cases(
                 "DNA", library, lib_dir, base_out, dna_mods,
                 kit_name=dna_kit if library == "multiplex" else None,
+                extra_mod_groups=dna_mod_extra_groups,
             )
 
             if library == "multiplex":

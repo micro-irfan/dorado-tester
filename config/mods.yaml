@@ -3,6 +3,12 @@
 # version; any mod not offered by that version is dropped from the run.
 dna:
   compatible_mods: ["5mCG_5hmCG", "6mA"]
+  # 4mC_5mC and 5mC_5hmC are alternative C-context mod models to the default
+  # 5mCG_5hmCG above -- all three act on the same canonical base (C), so none
+  # of them can be combined with each other (or with 5mCG_5hmCG) in one
+  # model complex, only with a non-C mod like 6mA. Not part of the default
+  # above; test them via --dna_mod as their own parallel cases instead, e.g.:
+  #   --dna_mod 4mC_5mC,6mA;5mC_5hmC,6mA
 rna:
   # m6A + pseU act on different canonical bases (A vs U/T) but are NOT
   # combinable: verified against v2.0.1, dorado refuses to mix mod models of
@@ -10,3 +16,17 @@ rna:
   # conv_lstm_v3), independent of canonical-base conflicts. Use --rna_mod to
   # test pseU (alone, or other combinations) as additional parallel cases.
   compatible_mods: ["m6A"]
+  # Fuller hac/sup mod sets (m5C, an A-context mod, pseU, and -- sup only --
+  # 2OmeG), each verified present in the download --list catalog at
+  # v5.2.0/v5.3.0/v6.0.0. m6A_DRACH and inosine_m6A(_2OmeA) both act on A, so
+  # never combine them in the same group -- deliberately kept as two
+  # separate options below rather than picking one for the default above.
+  # --rna_mod applies a group identically to both hac and sup, and the sup
+  # variants below (_2OmeC/_2OmeU/_2OmeG suffixed) only exist for sup, not
+  # hac (and plain m5C/pseU only exist for hac, not sup) -- so run the hac
+  # and sup flavours as separate invocations, not combined in one --rna_mod:
+  #   hac: --rna_mod m5C,m6A_DRACH,pseU;m5C,inosine_m6A,pseU
+  #   sup: --rna_mod m5C_2OmeC,m6A_DRACH,pseU_2OmeU,2OmeG;m5C_2OmeC,inosine_m6A_2OmeA,pseU_2OmeU,2OmeG
+  # (running a hac-flavoured group also tries it against sup, and vice
+  # versa -- the mismatched variant/mod pairing just fails that one case,
+  # isolated and non-fatal, same as any other per-case failure.)

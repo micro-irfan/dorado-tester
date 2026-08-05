@@ -51,6 +51,17 @@ def main(argv: list[str] | None = None) -> int:
             continue
         rna_mod_extra_groups.append(resolved)
 
+    dna_mod_extra_groups = []
+    for group in args.dna_mod:
+        resolved = runner.resolve_compatible_mods(group, available_mods_output)
+        if not resolved:
+            logger.warning(
+                "--dna_mod group %s has no mods supported by this Dorado version; skipping.",
+                group,
+            )
+            continue
+        dna_mod_extra_groups.append(resolved)
+
     cases = runner.build_test_matrix(
         dorado_path=dorado_path,
         dna_pod5_dir=args.path_to_dna_pod5,
@@ -66,6 +77,7 @@ def main(argv: list[str] | None = None) -> int:
         rna_libraries=args.rna_libraries,
         ignore=set(args.ignore),
         rna_mod_extra_groups=rna_mod_extra_groups,
+        dna_mod_extra_groups=dna_mod_extra_groups,
     )
 
     if args.list_tests:

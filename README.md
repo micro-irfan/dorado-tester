@@ -98,6 +98,7 @@ python run_tests.py \
 | `--only TEST_NAME [TEST_NAME ...]` | no | Only run these test case(s) by name; skips the rest of the matrix. Accepts space- and/or comma-separated names (`--only a,b c`). Logs, `manifest.json`, and the stats CSV are still written, scoped to just the selected case(s). |
 | `--add_tests TEST_NAME [TEST_NAME ...]` | no | Also run these normally-excluded-by-default test case(s), on top of the default run (same space-/comma-separated format as `--only`). Ignored if `--only` is given. |
 | `--rna_mod MODS [MODS ...]` | no | Test extra RNA mod combinations in parallel with (not instead of) the `config/mods.yaml`-derived default: `;`-separated groups, each a comma-separated set of mods combined in that one case, e.g. `--rna_mod "m6A,pseU;pseU"` adds two extra cases (m6A+pseU combined, pseU alone). Each is built into the matrix, suffixed by its mod combo, but **excluded from the default run** just like `dna_singleplex_no_trim` — select via `--only`/`--add_tests`. |
+| `--dna_mod MODS [MODS ...]` | no | Same as `--rna_mod`, but for DNA, e.g. `--dna_mod "4mC_5mC,6mA;5mC_5hmC,6mA"` tests both as extra parallel cases alongside the `config/mods.yaml` default (`5mCG_5hmCG,6mA`). `4mC_5mC`, `5mC_5hmC`, and `5mCG_5hmCG` all act on the same canonical base (C) — combine at most one per group, with a non-C mod like `6mA`. |
 | `--list_tests` | no | Print the `test_name` of every case the current arguments would run, then exit without running anything. Use this to find the name to pass to `--only`/`--add_tests`. |
 
 \* At least one of `--path_to_dna_pod5` / `--path_to_rna_pod5` must be given.
@@ -214,7 +215,17 @@ Two things reshape these names at runtime:
   `--rna_mod "m6A,pseU;pseU"` adds `rna_<library>_mods_m6A+pseU_hac` and
   `rna_<library>_mods_pseU_hac` (and the `_sup` equivalents) — but like
   `dna_singleplex_no_trim`, these extras are excluded from the default run;
-  use `--only`/`--add_tests` to run them.
+  use `--only`/`--add_tests` to run them. A group applies identically to
+  both `hac` and `sup` (there's no per-variant targeting), so a group built
+  from `hac`-only or `sup`-only mod names (see `config/mods.yaml`'s fuller
+  example combos) will fail — isolated, non-fatal — for whichever variant
+  doesn't have that exact mod name; run the two flavours as separate
+  `--rna_mod` invocations if that matters to you.
+- **`--dna_mod`**: same mechanism as `--rna_mod`, alongside (not replacing)
+  `config/mods.yaml`'s DNA default (`5mCG_5hmCG,6mA`). Unlike the RNA case
+  above, DNA's alternate C-context mods (`4mC_5mC`, `5mC_5hmC`) exist for
+  both `hac` and `sup`, so a single group works for both variants without
+  the same caveat.
 
 ## Running a single test case
 
