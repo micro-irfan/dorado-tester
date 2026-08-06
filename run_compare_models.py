@@ -116,20 +116,27 @@ def _version_sort_key(v: str) -> tuple[int, ...]:
     return tuple(int(p) for p in v.lstrip("vV").split("."))
 
 
-def _resolve_mod_models(base_model: str, mod_codes: list[str], catalog_text: str) -> list[str] | None:
+def _resolve_mod_models(
+    base_model: str, mod_codes: list[str], catalog_text: str
+) -> tuple[list[str], list[str]]:
     """Finds the highest-numbered '<base_model>_<mod_code>@v<N...>' entry in
-    `dorado download --list` output for each mod code. Returns None if any
-    code has no match at all for this exact base model -- the caller decides
-    what to do (skip this model, same as any other per-case failure)."""
+    `dorado download --list` output for each mod code. Returns
+    (resolved, missing) -- a code with no match at all for this exact base
+    model is dropped, not treated as a reason to skip the whole model: the
+    caller basecalls with whichever mods did resolve (or none at all, same
+    as not passing --mods), rather than losing an entire version from the
+    comparison over one missing mod."""
     resolved = []
+    missing = []
     for code in mod_codes:
         pattern = re.compile(re.escape(f"{base_model}_{code}@") + r"(v[\d.]+)")
         versions = pattern.findall(catalog_text)
         if not versions:
-            return None
+            missing.append(code)
+            continue
         best = max(versions, key=_version_sort_key)
         resolved.append(f"{base_model}_{code}@{best}")
-    return resolved
+    return resolved, missing
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -267,16 +274,17 @@ def main(argv: list[str] | None = None) -> int:
     for model, tag in zip(args.models, version_tags):
         modified_bases_models = None
         if args.mods:
-            resolved_mods = _resolve_mod_models(model, args.mods, catalog_text)
-            if resolved_mods is None:
+            resolved_mods, missing_mods = _resolve_mod_models(model, args.mods, catalog_text)
+            if missing_mods:
                 logger.warning(
-                    "%s: no compatible mod model found for one or more of %s for this "
-                    "exact pinned model in `dorado download --list`; skipping.",
-                    tag, args.mods,
+                    "%s: no compatible mod model found for %s for this exact pinned model "
+                    "in `dorado download --list`; proceeding %s.",
+                    tag, missing_mods,
+                    f"with just {resolved_mods}" if resolved_mods else "without any base modifications",
                 )
-                continue
-            modified_bases_models = ",".join(resolved_mods)
-            logger.info("%s: resolved --mods to %s", tag, modified_bases_models)
+            if resolved_mods:
+                modified_bases_models = ",".join(resolved_mods)
+                logger.info("%s: resolved --mods to %s", tag, modified_bases_models)
 
         case_out = output_root / tag
         cases.append(runner.TestCase(

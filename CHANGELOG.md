@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Fixed (run_compare_models.py)
+
+- `--mods`: a pinned model was skipped entirely (no row at all) if *any one*
+  of the requested mod codes had no match for that exact model in `dorado
+  download --list` — even if the rest resolved fine. `_resolve_mod_models`
+  now returns `(resolved, missing)` instead of `None`: a model basecalls
+  with whichever mods did resolve (warned about the ones that didn't), or
+  with no mods at all if none resolved (also warned) — it's never skipped,
+  so every requested version still gets a row in the comparison.
+
 ### Added (download_pod5.py)
 
 - `--species` (default, and currently only, `human`): `CATEGORIES` is now
