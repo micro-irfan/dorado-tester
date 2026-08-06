@@ -23,6 +23,10 @@ All notable changes to this project are documented in this file.
 - `polya_min`/`polya_max` columns alongside the existing `polya_median`/
   `polya_mean` in `stats_<version>.csv` (and the per-barcode CSV) — same
   source (`stats.polya_stats`, per-read `pt:i:` BAM tag via `pysam`).
+  `stats.collect_polya_lengths` now excludes reads with `pt:i:0` (a tail
+  Dorado didn't call — see `polya_tails_not_called` above — not an observed
+  zero-length tail) from all four `polya_*` stats, so an uncalled read can't
+  drag mean/median/min down.
 - `polya_tails_called`, `polya_tails_not_called`, `polya_avg_length_log`
   columns in `stats_<version>.csv` (and the per-barcode CSV): Dorado's own
   run-level poly(A) call-rate summary, parsed from its log line (e.g.

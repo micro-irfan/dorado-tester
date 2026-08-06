@@ -102,12 +102,19 @@ def summary_stats(df: pd.DataFrame, qscore_threshold: float) -> dict:
 
 
 def collect_polya_lengths(bam_paths: list[Path]) -> list[int]:
+    """Excludes reads with no pt:i: tag at all, and reads where Dorado wrote
+    pt:i:0 -- a tail it didn't call (see the "not called" count in its own
+    PolyA log line, `extract_polya_log_stats`) -- rather than an observed
+    zero-length tail. Including those would pull mean/median/min down
+    artificially; they're a call-rate signal, not a tail length."""
     values: list[int] = []
     for bam_path in bam_paths:
         with pysam.AlignmentFile(str(bam_path), "rb", check_sq=False) as bam:
             for read in bam:
                 if read.has_tag("pt"):
-                    values.append(int(read.get_tag("pt")))
+                    value = int(read.get_tag("pt"))
+                    if value > 0:
+                        values.append(value)
     return values
 
 

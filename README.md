@@ -319,7 +319,10 @@ rather than assuming a filename or a flat layout.
   `read_len_{mean,median,mode,min,max}`, `{mean,median}_qscore`,
   `qscore_{min,max}`, plus poly(A) columns for any case run with
   `--estimate-poly-a`: `polya_median`/`polya_mean`/`polya_min`/`polya_max`
-  (per-read, from the `pt:i:` BAM tag via `pysam`), and `polya_tails_called`/
+  (per-read, from the `pt:i:` BAM tag via `pysam` — reads with no `pt:i:`
+  tag, or `pt:i:0` for a tail Dorado didn't call, are excluded from all
+  four, so an uncalled read can't drag the mean/median/min down), and
+  `polya_tails_called`/
   `polya_tails_not_called`/`polya_avg_length_log` (Dorado's own run-level
   call-rate summary, parsed from its log line, e.g. `PolyA tails called
   112832, not called 13433, avg tail length 96` — a different figure than

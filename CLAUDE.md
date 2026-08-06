@@ -190,7 +190,11 @@ Columns per test case:
 - `n50` (read-length N50)
 - `read_len_mean`, `read_len_median`, `read_len_mode`, `read_len_min`, `read_len_max`
 - `mean_qscore`, `median_qscore`, `qscore_min`, `qscore_max` (all of per-read `mean_qscore_template`)
-- `polya_median` / `polya_mean` / `polya_min` / `polya_max` (RNA poly(A) cases only, from `pt:i:` tag)
+- `polya_median` / `polya_mean` / `polya_min` / `polya_max` (RNA poly(A) cases
+  only, from `pt:i:` tag; reads with no `pt:i:` tag, or `pt:i:0` -- a tail
+  Dorado didn't call, not an observed zero-length tail -- are excluded from
+  all four, since including them would pull mean/median/min down with a
+  call-rate signal rather than an actual tail length)
 - `polya_tails_called` / `polya_tails_not_called` / `polya_avg_length_log`
   (RNA poly(A) cases only): Dorado's own run-level poly(A) call-rate summary,
   printed to its log (not the `dorado summary` TSV or the BAM tags), e.g.
