@@ -179,6 +179,7 @@ def build_test_matrix(
     ignore: set[str] = frozenset(),
     rna_mod_extra_groups: list[list[str]] = (),
     dna_mod_extra_groups: list[list[str]] = (),
+    poly_a: bool = False,
 ) -> list[TestCase]:
     cases: list[TestCase] = []
     variants = resolve_model_variants(ignore)
@@ -200,10 +201,10 @@ def build_test_matrix(
                 output_dir=variant_out,
                 command_builders=[basecaller_builder(
                     dorado_path, variant, lib_dir, variant_out,
-                    kit_name=kit_name,
+                    kit_name=kit_name, estimate_poly_a=poly_a,
                     models_directory=models_directory, device=device,
                 )],
-                model=variant,
+                model=variant, estimate_poly_a=poly_a,
             ))
 
             if mods:
@@ -214,10 +215,10 @@ def build_test_matrix(
                     output_dir=mods_out,
                     command_builders=[basecaller_builder(
                         dorado_path, model_with_mods, lib_dir, mods_out,
-                        kit_name=kit_name,
+                        kit_name=kit_name, estimate_poly_a=poly_a,
                         models_directory=models_directory, device=device,
                     )],
-                    model=variant, mods=mods,
+                    model=variant, mods=mods, estimate_poly_a=poly_a,
                 ))
 
             # Extra combos from --rna_mod: always suffixed by mod combo (so
@@ -235,10 +236,10 @@ def build_test_matrix(
                     output_dir=mods_out,
                     command_builders=[basecaller_builder(
                         dorado_path, model_with_mods, lib_dir, mods_out,
-                        kit_name=kit_name,
+                        kit_name=kit_name, estimate_poly_a=poly_a,
                         models_directory=models_directory, device=device,
                     )],
-                    model=variant, mods=extra_mods,
+                    model=variant, mods=extra_mods, estimate_poly_a=poly_a,
                     default_excluded=True,
                 ))
 
@@ -261,12 +262,12 @@ def build_test_matrix(
                         command_builders=[
                             basecaller_builder(
                                 dorado_path, variant, lib_dir, barcode_out,
-                                no_trim=True,
+                                no_trim=True, estimate_poly_a=poly_a,
                                 models_directory=models_directory, device=device,
                             ),
                             _demux_builder(dorado_path, barcode_out, dna_kit, no_classify=False),
                         ],
-                        model=variant,
+                        model=variant, estimate_poly_a=poly_a,
                     ))
 
                     if dna_mods:
@@ -279,12 +280,12 @@ def build_test_matrix(
                             command_builders=[
                                 basecaller_builder(
                                     dorado_path, barcode_model_with_mods, lib_dir, barcode_mods_out,
-                                    no_trim=True,
+                                    no_trim=True, estimate_poly_a=poly_a,
                                     models_directory=models_directory, device=device,
                                 ),
                                 _demux_builder(dorado_path, barcode_mods_out, dna_kit, no_classify=False),
                             ],
-                            model=variant, mods=dna_mods,
+                            model=variant, mods=dna_mods, estimate_poly_a=poly_a,
                             default_excluded=True,
                         ))
             else:
@@ -294,9 +295,10 @@ def build_test_matrix(
                     output_dir=no_trim_out,
                     command_builders=[basecaller_builder(
                         dorado_path, primary_variant, lib_dir, no_trim_out, no_trim=True,
+                        estimate_poly_a=poly_a,
                         models_directory=models_directory, device=device,
                     )],
-                    model=primary_variant,
+                    model=primary_variant, estimate_poly_a=poly_a,
                 ))
 
     if rna_pod5_dir is not None:
@@ -308,19 +310,6 @@ def build_test_matrix(
                 "RNA", library, lib_dir, base_out, rna_mods,
                 kit_name=rna_kit_name, extra_mod_groups=rna_mod_extra_groups,
             )
-
-            poly_a_out = base_out / "poly_a"
-            cases.append(TestCase(
-                analyte="RNA", library=library, test_name=f"rna_{library}_poly_a",
-                output_dir=poly_a_out,
-                command_builders=[basecaller_builder(
-                    dorado_path, primary_variant, lib_dir, poly_a_out, estimate_poly_a=True,
-                    kit_name=rna_kit_name,
-                    models_directory=models_directory, device=device,
-                )],
-                model=primary_variant,
-                estimate_poly_a=True,
-            ))
 
     return cases
 

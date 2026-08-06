@@ -74,8 +74,8 @@ def summary_stats(df: pd.DataFrame, qscore_threshold: float) -> dict:
             "read_len_mode": float("nan"),
             "read_len_min": float("nan"),
             "read_len_max": float("nan"),
-            "mean_qscore": float("nan"),
-            "median_qscore": float("nan"),
+            "qscore_mean": float("nan"),
+            "qscore_median": float("nan"),
             "qscore_min": float("nan"),
             "qscore_max": float("nan"),
         }
@@ -94,8 +94,8 @@ def summary_stats(df: pd.DataFrame, qscore_threshold: float) -> dict:
         "read_len_mode": float(mode.iloc[0]) if not mode.empty else float("nan"),
         "read_len_min": float(lengths.min()),
         "read_len_max": float(lengths.max()),
-        "mean_qscore": float(qscores.mean()),
-        "median_qscore": float(qscores.median()),
+        "qscore_mean": float(qscores.mean()),
+        "qscore_median": float(qscores.median()),
         "qscore_min": float(qscores.min()),
         "qscore_max": float(qscores.max()),
     }

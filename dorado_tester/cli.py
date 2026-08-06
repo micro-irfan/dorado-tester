@@ -107,6 +107,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
              "without running anything.",
     )
     parser.add_argument(
+        "--poly_a",
+        action="store_true",
+        help="Add --estimate-poly-a to every basecall in the matrix (DNA and RNA both -- "
+             "poly(A) tail estimation isn't RNA-only, it also works on cDNA). Replaces the "
+             "old dedicated rna_<library>_poly_a case: instead of one extra RNA-only case, "
+             "every case's stats gain the polya_* columns (see README.md). No effect on "
+             "which test cases run, only on the command each one uses.",
+    )
+    parser.add_argument(
         "--dry_run",
         action="store_true",
         help="Build the test matrix and render every case's dorado command(s) without "

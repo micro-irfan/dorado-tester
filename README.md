@@ -61,6 +61,7 @@ python download_pod5.py --output_dir ./pod5_data --num_files 2
 | Argument | Meaning |
 |---|---|
 | `--output_dir` | Where to write `dna/{multiplex,singleplex}/` and `rna/{multiplex,singleplex}/`. Default `./pod5_data`. |
+| `--species` | Which species' dataset to pull from. Default (and currently only) `human`. |
 | `--num_files`, `-n` | POD5 files per category, 1-10 (default 1). Capped at 10 since each dataset's files are only numbered with a single trailing digit — this is meant for smoke-testing a new Dorado version, not a full benchmark. |
 | `--type` | Restrict which of the 4 categories to fetch: comma-separated tokens from `{dna, rna, multiplex, singleplex}`. A category downloads if *all* given tokens apply to it — `--type dna` gets both DNA multiplex and DNA singleplex; `--type dna,multiplex` gets only DNA multiplex. Default: all four. |
 
@@ -94,11 +95,12 @@ python run_tests.py \
 | `--device` | no | Passed through to Dorado's `-x/--device`. Default `auto`. |
 | `--models_directory` | no | Passed through to Dorado's `--models-directory` so model downloads are cached/shared between versions. |
 | `--strict` | no | Exit non-zero if any test case failed (default: always exits 0). |
-| `--ignore VARIANT [VARIANT ...]` | no | Skip basecalling model variant(s): `hac` and/or `sup` (space- and/or comma-separated, e.g. `--ignore sup,hac`). Ignoring one runs only the other everywhere (including downgrading the barcode-kit, no-trim, and poly(A) cases, which default to sup). Ignoring **both** runs the `fast` variant everywhere instead. |
+| `--ignore VARIANT [VARIANT ...]` | no | Skip basecalling model variant(s): `hac` and/or `sup` (space- and/or comma-separated, e.g. `--ignore sup,hac`). Ignoring one runs only the other everywhere (including downgrading the barcode-kit and no-trim cases, which default to sup). Ignoring **both** runs the `fast` variant everywhere instead. |
 | `--only TEST_NAME [TEST_NAME ...]` | no | Only run these test case(s) by name; skips the rest of the matrix. Accepts space- and/or comma-separated names (`--only a,b c`). Logs, `manifest.json`, and the stats CSV are still written, scoped to just the selected case(s). |
 | `--add_tests TEST_NAME [TEST_NAME ...]` | no | Also run these normally-excluded-by-default test case(s), on top of the default run (same space-/comma-separated format as `--only`). Ignored if `--only` is given. |
 | `--rna_mod MODS [MODS ...]` | no | Test extra RNA mod combinations in parallel with (not instead of) the `config/mods.yaml`-derived default: `;`-separated groups, each a comma-separated set of mods combined in that one case, e.g. `--rna_mod "m6A,pseU;pseU"` adds two extra cases (m6A+pseU combined, pseU alone). Each is built into the matrix, suffixed by its mod combo, but **excluded from the default run** just like `dna_singleplex_no_trim` — select via `--only`/`--add_tests`. |
 | `--dna_mod MODS [MODS ...]` | no | Same as `--rna_mod`, but for DNA, e.g. `--dna_mod "4mC_5mC,6mA;5mC_5hmC,6mA"` tests both as extra parallel cases alongside the `config/mods.yaml` default (`5mCG_5hmCG,6mA`). `4mC_5mC`, `5mC_5hmC`, and `5mCG_5hmCG` all act on the same canonical base (C) — combine at most one per group, with a non-C mod like `6mA`. |
+| `--poly_a` | no | Add `--estimate-poly-a` to every basecall in the matrix — DNA and RNA both, poly(A) tail estimation isn't RNA-only, it also works on cDNA. Doesn't add or remove any test case, just changes every case's command and, correspondingly, its stats row (see `polya_*` columns below). Replaces the old dedicated `rna_<library>_poly_a` case. |
 | `--list_tests` | no | Print the `test_name` of every case the current arguments would run, then exit without running anything. Use this to find the name to pass to `--only`/`--add_tests`. |
 | `--dry_run` | no | Build the matrix and render every case's dorado command(s) — without launching dorado. Still writes `manifest.json` (`status: "dry_run"`, `wall_time_sec: null`) and per-case logs under `logs/` with the rendered command(s), plus the usual stats CSV (all-NaN rows, since nothing basecalled) — same downstream shape as a real run, so tooling that reads these outputs doesn't need a special case. A demux command that depends on a prior basecall step's actual output (bam file discovery) can't be fully resolved without that step having run; it's logged with a placeholder for the unresolved part rather than being skipped. |
 
@@ -121,9 +123,9 @@ given) and RNA (if `--path_to_rna_pod5` is given):
   `dorado download --list` for the target version — mods the version doesn't
   support are dropped)
 
-For the **multiplex** library (DNA and RNA both), all of the above — plus
-RNA's poly(A) case — are basecalled with `--kit-name` (inline
-classification, default trim). No separate demux step — verified against
+For the **multiplex** library (DNA and RNA both), all of the above are
+basecalled with `--kit-name` (inline classification, default trim). No
+separate demux step — verified against
 v2.0.1, `--kit-name` during basecalling already splits output into
 per-barcode `bam_pass/<barcode>/*.bam` files on its own; a redundant
 `demux` call on top of that fails (see [CLAUDE.md](CLAUDE.md) for why).
@@ -141,10 +143,9 @@ Plus, DNA-only:
 - **Singleplex**: basecalling with `--no-trim` (`dna_singleplex_no_trim` —
   also excluded from the default run, see below)
 
-And RNA-only:
-
-- poly(A) tail length estimation (`--estimate-poly-a`)
-
+Poly(A) tail length estimation (`--estimate-poly-a`) isn't a separate test
+case — pass `--poly_a` to add it to every case in the matrix, DNA and RNA
+both (see the args table above).
 
 ## All possible tests
 
@@ -185,13 +186,13 @@ arguments produce.
 | `rna_<library>_simplex_sup` | `basecaller sup` | Yes |
 | `rna_<library>_mods_hac` | `hac,<mods>` (default: `m6A` only — see below) | Only if RNA mods available |
 | `rna_<library>_mods_sup` | `sup,<mods>` (default: `m6A` only — see below) | Only if RNA mods available |
-| `rna_<library>_poly_a` | `basecaller sup --estimate-poly-a` | Yes |
 
 (`<library>` is `multiplex` or `singleplex`. For `multiplex`, every row above
-— poly(A) included — also gets `--kit-name <RNA_KIT>` on the basecall, same
-inline-classify-and-auto-split behavior as DNA multiplex, no separate demux
-step. RNA has no *dedicated* barcode-kit or no-trim case, though — see
-[CLAUDE.md](CLAUDE.md) if you want that mirrored for RNA cDNA kits.)
+also gets `--kit-name <RNA_KIT>` on the basecall, same inline-classify-and-
+auto-split behavior as DNA multiplex, no separate demux step. RNA has no
+*dedicated* barcode-kit or no-trim case, though — see [CLAUDE.md](CLAUDE.md)
+if you want that mirrored for RNA cDNA kits. Every row above also gets
+`--estimate-poly-a` if `--poly_a` is passed, same as every DNA row.)
 
 Two things reshape these names at runtime:
 
@@ -316,9 +317,9 @@ rather than assuming a filename or a flat layout.
   with more than one), also parsed from the log — blank on a CPU-only run,
   since there's nothing to parse then. Plus `dorado_summary`-
   derived stats: `num_reads`/`num_bases` (+ `_passed` variants), `n50`,
-  `read_len_{mean,median,mode,min,max}`, `{mean,median}_qscore`,
-  `qscore_{min,max}`, plus poly(A) columns for any case run with
-  `--estimate-poly-a`: `polya_median`/`polya_mean`/`polya_min`/`polya_max`
+  `read_len_{mean,median,mode,min,max}`, `qscore_{mean,median,min,max}`,
+  plus poly(A) columns for any case run with
+  `--estimate-poly-a`: `polya_mean`/`polya_median`/`polya_min`/`polya_max`
   (per-read, from the `pt:i:` BAM tag via `pysam` — reads with no `pt:i:`
   tag, or `pt:i:0` for a tail Dorado didn't call, are excluded from all
   four, so an uncalled read can't drag the mean/median/min down), and
@@ -393,7 +394,7 @@ python run_compare_models.py \
 | `--mods` | no | Comma-separated mod codes applied to every model in `--models`, e.g. `5mCG_5hmCG,6mA`. Each is resolved to the highest available fully-qualified mod model name *for that exact pinned base model* (via `dorado download --list`) and passed through `--modified-bases-models` — a bare code appended to a pinned `model@version` doesn't auto-resolve the way it does for a floating `hac`/`sup` alias, so this script does that resolution itself. A model missing a requested mod is skipped (warned), same as any other per-case failure. Two codes that look like they act on the same canonical base (e.g. `5mC_5hmC` + `5mCG_5hmCG`, both C) are rejected upfront with a clear error, before anything runs — best-effort, not exhaustive (can't catch e.g. the mod-model architecture-type conflicts noted in [CLAUDE.md](CLAUDE.md)). |
 | `--path_to_pod5` | yes | Directory containing `multiplex/`/`singleplex/`, same layout as `run_tests.py`. One flag, not two — `--test` already says which analyte, so which one it needs (and validates) follows from that. |
 | `--kit_name` | no | Only used if `--test` is a multiplex test (adds `--kit-name`, same as `run_tests.py`). One flag, not `--dna_kit`/`--rna_kit` — defaults to `SQK-NBD114-24` for DNA tests / `SQK-DRB004-24` for RNA tests if omitted. |
-| `--poly_a` | no | Adds `--estimate-poly-a` to the basecall (poly(A) tail length in the `pt:i:` BAM tag). Only meaningful for RNA tests; ignored (with a warning) if `--test` is a DNA test. |
+| `--poly_a` | no | Adds `--estimate-poly-a` to the basecall (poly(A) tail length in the `pt:i:` BAM tag). Works for DNA tests too, not just RNA. |
 | `--output_dir` | no | Default `./results_compare`. |
 | `--device`, `--models_directory`, `--strict`, `--dry_run` | no | Same meaning as `run_tests.py`. |
 

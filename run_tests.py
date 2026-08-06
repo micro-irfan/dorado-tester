@@ -78,6 +78,7 @@ def main(argv: list[str] | None = None) -> int:
         ignore=set(args.ignore),
         rna_mod_extra_groups=rna_mod_extra_groups,
         dna_mod_extra_groups=dna_mod_extra_groups,
+        poly_a=args.poly_a,
     )
 
     if args.list_tests:

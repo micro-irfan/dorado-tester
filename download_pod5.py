@@ -26,22 +26,30 @@ MAX_FILES = 10
 # Each dataset's files are named ..._1<digit>.pod5 (single digit, 0-9), so a
 # request for N files becomes a "[0-N-1]" character class here -- which is
 # also why N is capped at 10 (one digit).
-CATEGORIES: dict[tuple[str, str], dict[str, str]] = {
-    ("dna", "multiplex"): {
-        "s3_uri": "s3://ont-open-data/pgx_as_2025.07/flowcells/cohort_1/pod5/",
-        "filename_template": "PBC88003_08351ad4_aada6c04_1{range}.pod5",
-    },
-    ("dna", "singleplex"): {
-        "s3_uri": "s3://ont-open-data/giab_2025.01/flowcells/HG002/PAW70337/pod5/",
-        "filename_template": "PAW70337_66b2eea5_de8117b1_1{range}.pod5",
-    },
-    ("rna", "multiplex"): {
-        "s3_uri": "s3://ont-open-data/UHRR_HG002_2026.06/raw/dRNA/HG002/DRB004_24/HG002_DRB004_24_PolyA_1/",
-        "filename_template": "PBM60192_598e5b4d_0120de47_1{range}.pod5",
-    },
-    ("rna", "singleplex"): {
-        "s3_uri": "s3://ont-open-data/UHRR_HG002_2026.06/raw/dRNA/HG002/RNA004/HG002_RNA004_PolyA_1/",
-        "filename_template": "PBE81341_30374973_a683f47a_1{range}.pod5",
+#
+# Keyed by species first so more species can be added later (each with its
+# own set of (analyte, library) -> {s3_uri, filename_template} entries)
+# without disturbing the human defaults below.
+DEFAULT_SPECIES = "human"
+
+CATEGORIES: dict[str, dict[tuple[str, str], dict[str, str]]] = {
+    "human": {
+        ("dna", "multiplex"): {
+            "s3_uri": "s3://ont-open-data/pgx_as_2025.07/flowcells/cohort_1/pod5/",
+            "filename_template": "PBC88003_08351ad4_aada6c04_1{range}.pod5",
+        },
+        ("dna", "singleplex"): {
+            "s3_uri": "s3://ont-open-data/giab_2025.01/flowcells/HG002/PAW70337/pod5/",
+            "filename_template": "PAW70337_66b2eea5_de8117b1_1{range}.pod5",
+        },
+        ("rna", "multiplex"): {
+            "s3_uri": "s3://ont-open-data/UHRR_HG002_2026.06/raw/dRNA/HG002/DRB004_24/HG002_DRB004_24_PolyA_1/",
+            "filename_template": "PBM60192_598e5b4d_0120de47_1{range}.pod5",
+        },
+        ("rna", "singleplex"): {
+            "s3_uri": "s3://ont-open-data/UHRR_HG002_2026.06/raw/dRNA/HG002/RNA004/HG002_RNA004_PolyA_1/",
+            "filename_template": "PBE81341_30374973_a683f47a_1{range}.pod5",
+        },
     },
 }
 
@@ -54,6 +62,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                     "for exercising run_tests.py against a new Dorado version.",
     )
     parser.add_argument("--output_dir", type=Path, default=Path("./pod5_data"))
+    parser.add_argument(
+        "--species", default=DEFAULT_SPECIES, choices=sorted(CATEGORIES),
+        help=f"Which species' dataset to pull from. Default: {DEFAULT_SPECIES}.",
+    )
     parser.add_argument(
         "--num_files", "-n", type=int, default=1,
         help=f"Pod5 files to fetch per category (1-{MAX_FILES}, default 1).",
@@ -85,9 +97,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return args
 
 
-def select_categories(type_tokens: set[str]) -> list[tuple[str, str]]:
+def select_categories(species: str, type_tokens: set[str]) -> list[tuple[str, str]]:
     selected = [
-        category for category in CATEGORIES
+        category for category in CATEGORIES[species]
         if not type_tokens or type_tokens <= set(category)
     ]
     if not selected:
@@ -123,9 +135,9 @@ def build_include_pattern(filename_template: str, num_files: int) -> str:
     return filename_template.format(range=digit_range)
 
 
-def sync_category(analyte: str, library: str, output_dir: Path, num_files: int) -> bool:
+def sync_category(species: str, analyte: str, library: str, output_dir: Path, num_files: int) -> bool:
     logger = get_logger()
-    spec = CATEGORIES[(analyte, library)]
+    spec = CATEGORIES[species][(analyte, library)]
     dest_dir = output_dir / analyte / library
     dest_dir.mkdir(parents=True, exist_ok=True)
     include_pattern = build_include_pattern(spec["filename_template"], num_files)
@@ -156,15 +168,15 @@ def main(argv: list[str] | None = None) -> int:
     check_aws_installed()
     check_free_space(args.output_dir)
 
-    categories = select_categories(args.type_tokens)
+    categories = select_categories(args.species, args.type_tokens)
     logger.info(
-        "Fetching %d file(s) each for: %s",
-        args.num_files, ", ".join(f"{a}/{l}" for a, l in categories),
+        "Fetching %d file(s) each for %s: %s",
+        args.num_files, args.species, ", ".join(f"{a}/{l}" for a, l in categories),
     )
 
     failures = []
     for analyte, library in categories:
-        if not sync_category(analyte, library, args.output_dir, args.num_files):
+        if not sync_category(args.species, analyte, library, args.output_dir, args.num_files):
             failures.append(f"{analyte}/{library}")
 
     if failures:

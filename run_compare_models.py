@@ -174,8 +174,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--poly_a", action="store_true",
         help="Add --estimate-poly-a to the basecall (poly(A) tail length written to the "
-             "pt:i: BAM tag). Only meaningful for RNA tests; ignored (with a warning) if "
-             "--test is a DNA test.",
+             "pt:i: BAM tag). Works for DNA tests too, not just RNA -- poly(A) tail "
+             "estimation isn't RNA-only, it also works on cDNA.",
     )
     parser.add_argument("--output_dir", type=Path, default=Path("results_compare"))
     parser.add_argument("--device", default="auto")
@@ -261,9 +261,7 @@ def main(argv: list[str] | None = None) -> int:
     if library == "multiplex":
         kit_name = args.kit_name or DEFAULT_KIT_NAMES[analyte]
 
-    estimate_poly_a = args.poly_a and analyte == "RNA"
-    if args.poly_a and analyte == "DNA":
-        logger.warning("--poly_a is ignored for DNA tests (--test %s)", args.test)
+    estimate_poly_a = args.poly_a
 
     cases = []
     for model, tag in zip(args.models, version_tags):

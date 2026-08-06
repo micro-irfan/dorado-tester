@@ -113,14 +113,25 @@ For **each** library in `{multiplex, singleplex}`:
 
 1. **Simplex HAC** and **Simplex SUP** (same as DNA cases 1–2).
 2. **HAC + mods** and **SUP + mods** (RNA mods differ — see below).
-3. **poly(A) tail estimation** — `dorado basecaller sup <lib> --estimate-poly-a`. The estimated tail length is written to the `pt:i:` BAM tag per read.
 
-For the **multiplex** library, all of the above (including poly(A)) get
-`--kit-name <RNA_KIT>` added to the basecall, same as DNA multiplex — this
-was missed initially (`rna_kit`/`--rna_kit` was accepted on the CLI but never
-actually passed through to any command). No dedicated demux step here either,
-for the same reason as DNA: inline `--kit-name` already splits output into
-per-barcode `bam_pass/<barcode>/*.bam`.
+For the **multiplex** library, all of the above get `--kit-name <RNA_KIT>`
+added to the basecall, same as DNA multiplex — this was missed initially
+(`rna_kit`/`--rna_kit` was accepted on the CLI but never actually passed
+through to any command). No dedicated demux step here either, for the same
+reason as DNA: inline `--kit-name` already splits output into per-barcode
+`bam_pass/<barcode>/*.bam`.
+
+**poly(A) tail estimation** (`--estimate-poly-a`; result in the `pt:i:` tag
+per read) is **not** a dedicated test case. It was originally only a single
+RNA-specific case (`rna_<library>_poly_a`, `sup` only), but poly(A) tail
+estimation isn't RNA-only — it also works on cDNA — so it's now a run-wide
+`--poly_a` CLI flag instead: when given, every case in the matrix (DNA and
+RNA both, every variant/mods/barcode-kit/no-trim combination) gets
+`--estimate-poly-a` added to its basecall, and `TestCase.estimate_poly_a`
+(recorded in `manifest.json`, not inferred from the test name) tells
+`aggregate.py` which cases' stats rows should carry the `polya_*` columns.
+`run_compare_models.py` has the same `--poly_a` flag, same behavior, also
+usable for DNA and RNA tests both.
 
 > If the user later wants the DNA barcode/demux flow mirrored for RNA cDNA kits (PCB/PCS) — i.e. a *dedicated* case with the opposite (no-trim + demux) convention, like DNA case 5 — that's a natural extension, but it is **not** in the current spec — do not add it unless asked.
 
@@ -189,14 +200,15 @@ Columns per test case:
 - `num_bases_passed` (Qscore of >9 for HAC and >12 for SUP)
 - `n50` (read-length N50)
 - `read_len_mean`, `read_len_median`, `read_len_mode`, `read_len_min`, `read_len_max`
-- `mean_qscore`, `median_qscore`, `qscore_min`, `qscore_max` (all of per-read `mean_qscore_template`)
-- `polya_median` / `polya_mean` / `polya_min` / `polya_max` (RNA poly(A) cases
-  only, from `pt:i:` tag; reads with no `pt:i:` tag, or `pt:i:0` -- a tail
-  Dorado didn't call, not an observed zero-length tail -- are excluded from
-  all four, since including them would pull mean/median/min down with a
-  call-rate signal rather than an actual tail length)
+- `qscore_mean`, `qscore_median`, `qscore_min`, `qscore_max` (all of per-read `mean_qscore_template`)
+- `polya_mean` / `polya_median` / `polya_min` / `polya_max` (only for cases
+  run with `--poly_a`, DNA or RNA, from `pt:i:` tag; reads with no `pt:i:`
+  tag, or `pt:i:0` -- a tail Dorado didn't call, not an observed zero-length
+  tail -- are excluded from all four, since including them would pull
+  mean/median/min down with a call-rate signal rather than an actual tail
+  length)
 - `polya_tails_called` / `polya_tails_not_called` / `polya_avg_length_log`
-  (RNA poly(A) cases only): Dorado's own run-level poly(A) call-rate summary,
+  (same `--poly_a` cases only): Dorado's own run-level poly(A) call-rate summary,
   printed to its log (not the `dorado summary` TSV or the BAM tags), e.g.
   `PolyA tails called 112832, not called 13433, avg tail length 96`. Parsed
   via `stats.extract_polya_log_stats`, same pattern as `resolved_models`/
@@ -204,10 +216,10 @@ Columns per test case:
   per-read from the `pt:i:` tag via `pysam` — this is Dorado's own summary
   across the whole run, not derived from the tag values in this repo.
   A case is only recognized as a poly(A) case via `TestCase.estimate_poly_a`
-  (recorded explicitly in `manifest.json`), not by sniffing `test_name` for
-  a `_poly_a` suffix — `run_compare_models.py`'s cases are named after the
-  version tag being compared, so a name-based check would silently miss
-  them there.
+  (recorded explicitly in `manifest.json`, set by `--poly_a`), not inferred
+  from `test_name` — there's no `*_poly_a` name to sniff for at all now, and
+  `run_compare_models.py`'s cases are named after the version tag being
+  compared, so a name-based check would never have worked for it anyway.
 
 Sourcing:
 

@@ -4,6 +4,36 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added (download_pod5.py)
+
+- `--species` (default, and currently only, `human`): `CATEGORIES` is now
+  keyed by species first (`{species: {(analyte, library): {s3_uri,
+  filename_template}}}`), so additional species can be added as their own
+  entries later without touching the human defaults. No behavior change
+  when `--species` is left at its default.
+
+### Changed
+
+- Standardized `stats_<version>.csv` column naming: `mean_qscore`/
+  `median_qscore` renamed to `qscore_mean`/`qscore_median`, so the whole
+  qscore group (`qscore_mean`, `qscore_median`, `qscore_min`, `qscore_max`)
+  puts the metric name first, matching `read_len_*` and `polya_*`. Also
+  reordered `polya_median`/`polya_mean` to `polya_mean`/`polya_median` in
+  `STATS_COLUMNS` (mean before median everywhere else). Column *values* are
+  unaffected, only names/order — `mean_qscore_template`, the actual `dorado
+  summary` TSV column this is computed from, is untouched (that name is
+  Dorado's, not ours).
+- Poly(A) tail estimation is no longer a dedicated, RNA-only test case.
+  `run_tests.py` no longer builds an `rna_<library>_poly_a` case; instead,
+  `--poly_a` (new flag, mirroring `run_compare_models.py`'s) adds
+  `--estimate-poly-a` to **every** case in the matrix — DNA and RNA both,
+  every variant/mods/barcode-kit/no-trim combination — since poly(A) tail
+  estimation isn't RNA-only, it also works on cDNA. `run_compare_models.py`'s
+  `--poly_a` similarly dropped its `analyte == "RNA"` gate (previously
+  ignored, with a warning, for DNA tests) and now applies to any `--test`.
+  `TestCase` gained an `estimate_poly_a` field (already added for the fix
+  below) that both scripts set per case instead of a fixed single case.
+
 ### Fixed
 
 - `polya_median`/`polya_mean` weren't populated in `stats_<version>.csv` for
