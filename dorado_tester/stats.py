@@ -61,13 +61,17 @@ def read_length_n50(lengths: pd.Series) -> float:
     return float("nan")
 
 
-def summary_stats(df: pd.DataFrame, qscore_threshold: float) -> dict:
+def summary_stats(df: pd.DataFrame, qscore_threshold: float | None) -> dict:
+    """qscore_threshold is None when there's no known model to derive a
+    pass/fail cutoff from (e.g. run_custom_command.py's `aligner` case, or a
+    `basecaller` model it doesn't recognize) -- num_reads_passed/
+    num_bases_passed come back NaN rather than guessing a threshold."""
     if df.empty:
         return {
             "num_reads": 0,
-            "num_reads_passed": 0,
+            "num_reads_passed": 0 if qscore_threshold is not None else float("nan"),
             "num_bases": 0,
-            "num_bases_passed": 0,
+            "num_bases_passed": 0 if qscore_threshold is not None else float("nan"),
             "n50": float("nan"),
             "read_len_mean": float("nan"),
             "read_len_median": float("nan"),
@@ -81,13 +85,19 @@ def summary_stats(df: pd.DataFrame, qscore_threshold: float) -> dict:
         }
     lengths = df["sequence_length_template"]
     qscores = df["mean_qscore_template"]
-    passed = df[qscores > qscore_threshold]
     mode = lengths.mode()
+    if qscore_threshold is None:
+        num_reads_passed: float | int = float("nan")
+        num_bases_passed: float | int = float("nan")
+    else:
+        passed = df[qscores > qscore_threshold]
+        num_reads_passed = int(len(passed))
+        num_bases_passed = int(passed["sequence_length_template"].sum())
     return {
         "num_reads": int(len(df)),
-        "num_reads_passed": int(len(passed)),
+        "num_reads_passed": num_reads_passed,
         "num_bases": int(lengths.sum()),
-        "num_bases_passed": int(passed["sequence_length_template"].sum()),
+        "num_bases_passed": num_bases_passed,
         "n50": read_length_n50(lengths),
         "read_len_mean": float(lengths.mean()),
         "read_len_median": float(lengths.median()),
@@ -138,17 +148,21 @@ def polya_stats(pt_values: list[int]) -> dict:
 def compute_bam_stats(
     dorado_path: str,
     bam_paths: list[Path],
-    model: str,
+    model: str | None,
     *,
     estimate_poly_a: bool = False,
 ) -> dict:
+    """model=None skips the qscore pass-threshold lookup entirely (see
+    summary_stats) -- for callers with no model to go on, rather than
+    guessing one."""
     dfs = [run_summary(dorado_path, str(b)) for b in bam_paths]
     combined = (
         pd.concat(dfs, ignore_index=True)
         if dfs
         else pd.DataFrame(columns=["sequence_length_template", "mean_qscore_template"])
     )
-    stats = summary_stats(combined, get_qscore_threshold(model))
+    qscore_threshold = get_qscore_threshold(model) if model else None
+    stats = summary_stats(combined, qscore_threshold)
     if estimate_poly_a:
         stats.update(polya_stats(collect_polya_lengths(bam_paths)))
     return stats

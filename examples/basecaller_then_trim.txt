@@ -1,0 +1,20 @@
+# Two-step pipeline: basecall without inline trimming, then trim as a
+# separate step. Demonstrates backslash line-continuation for a single
+# command spread across multiple lines.
+#
+# Run with:
+#   python run_custom_command.py --path_to_dorado <path/to/dorado> \
+#     --command examples/basecaller_then_trim.txt \
+#     --output_dir results_custom/basecaller_then_trim
+#
+# Adjust paths/flags for your setup -- check `dorado trim --help` for this
+# Dorado version's exact options (unverified in this repo; only basecaller
+# and aligner flags have been verified so far -- see CLAUDE.md).
+
+dorado basecaller \
+  sup \
+  /data/pod5 \
+  --no-trim \
+  -o /tmp/basecall_out
+
+dorado trim /tmp/basecall_out -o /tmp/trim_out

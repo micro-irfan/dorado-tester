@@ -4,150 +4,79 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
-### Fixed (run_compare_models.py)
+### Added
 
-- `--mods`: a pinned model was skipped entirely (no row at all) if *any one*
-  of the requested mod codes had no match for that exact model in `dorado
-  download --list` — even if the rest resolved fine. `_resolve_mod_models`
-  now returns `(resolved, missing)` instead of `None`: a model basecalls
-  with whichever mods did resolve (warned about the ones that didn't), or
-  with no mods at all if none resolved (also warned) — it's never skipped,
-  so every requested version still gets a row in the comparison.
-
-### Added (download_pod5.py)
-
-- `--species` (default, and currently only, `human`): `CATEGORIES` is now
-  keyed by species first (`{species: {(analyte, library): {s3_uri,
-  filename_template}}}`), so additional species can be added as their own
-  entries later without touching the human defaults. No behavior change
-  when `--species` is left at its default.
+- `run_custom_command.py`: runs an arbitrary `dorado` command, or a short
+  pipeline of them, for anything outside `run_tests.py`'s and
+  `run_compare_models.py`'s fixed matrices. `--command` takes either a
+  literal command string or a path to a text file listing one or more
+  commands, run in sequence (stopping at the first failure) — a file
+  supports `\`-continued multi-line commands, `#` comments, and a literal
+  `dorado` token that gets replaced with `--path_to_dorado` (see
+  `examples/` for sample pipelines). Same conventions as the other
+  scripts — log file + `manifest.json` always; if the *last* command is
+  `basecaller` or `aligner` and the pipeline succeeds, a best-effort
+  `stats.csv` is also computed from whatever `*.bam` it produced. Any
+  other last-step subcommand (`demux`, `trim`, `correct`, `smallvar`, ...)
+  just gets the log + manifest, since this repo hasn't verified their
+  output shape. `stats.summary_stats`/`compute_bam_stats` now accept
+  `model=None` (skips the qscore pass-threshold lookup, leaving
+  `num_reads_passed`/`num_bases_passed` blank rather than guessed) for an
+  `aligner` case or an unrecognized `basecaller` model name.
+- `run_compare_models.py`: compares specific, pinned Dorado model versions
+  (not speed aliases) for one basecalling test, against a single Dorado
+  executable — e.g. `dna_..._hac@v5.0.0` vs `dna_..._hac@v6.0.0`.
+  `--test` picks one of the 8 `{dna,rna}_{singleplex,multiplex}_simplex_{hac,sup}`
+  cases; `--models` takes 2+ full versioned model names to compare;
+  `--mods` applies mod codes to every model, each resolved to its
+  fully-qualified name (via `dorado download --list`) and passed through
+  `--modified-bases-models`, since a bare code doesn't auto-resolve against
+  an already-pinned `model@version` the way it does for a floating
+  `hac`/`sup` alias. Two mod codes on the same canonical base are rejected
+  upfront; a model missing some (or all) of the requested mods still runs,
+  with whichever did resolve; a `--models` entry not found in the download
+  catalog gets a warning but still runs, letting Dorado's own error be the
+  real failure record if it truly doesn't exist. Also takes `--poly_a`,
+  `--kit_name`, `--path_to_pod5`, `--device`, `--models_directory`,
+  `--strict`, `--dry_run`. Reuses `run_tests.py`'s per-case isolation,
+  logging, `manifest.json`, and stats CSV output; writes to
+  `results_compare/<test>/<v1-v2-...>/`, never reusing an existing folder.
+- `tests/test_run_compare_models.py`: `unittest`-based coverage of its
+  argument parsing/validation.
+- `--dry_run` (both `run_tests.py` and `run_compare_models.py`): renders
+  every case's dorado command(s) without launching dorado. Still writes
+  `manifest.json`/logs/stats CSV as usual, with `status: "dry_run"` and
+  NaN stats. A demux command that depends on a prior basecall step's real
+  output gets a placeholder instead of being treated as a failure.
+  `--strict` ignores `dry_run` results.
+- `--dna_mod` (`run_tests.py`): mirrors `--rna_mod`, but for DNA's
+  alternate C-context mods (`4mC_5mC`, `5mC_5hmC`), added alongside the
+  `config/mods.yaml` default rather than replacing it.
+- `config/mods.yaml`: documented (as comments, not new defaults) two
+  fuller RNA mod combos for `hac`/`sup`, verified against the
+  v5.2.0–v6.0.0 catalog — see the file for the exact `--rna_mod` recipes.
+- `gpu` column in `stats_<version>.csv`: the GPU(s) Dorado reported using,
+  parsed from each case's log (blank on a CPU-only run).
+- `polya_min`/`polya_max` alongside the existing `polya_mean`/
+  `polya_median`, and `polya_tails_called`/`polya_tails_not_called`/
+  `polya_avg_length_log` (Dorado's own run-level poly(A) call-rate
+  summary, parsed from its log line) — distinct from the per-read
+  `pt:i:`-tag-derived stats, which now exclude `pt:i:0` (uncalled) reads.
+- `--species` (`download_pod5.py`, default and currently only `human`):
+  `CATEGORIES` is keyed by species first, so more can be added later
+  without touching the human defaults.
 
 ### Changed
 
-- Standardized `stats_<version>.csv` column naming: `mean_qscore`/
-  `median_qscore` renamed to `qscore_mean`/`qscore_median`, so the whole
-  qscore group (`qscore_mean`, `qscore_median`, `qscore_min`, `qscore_max`)
-  puts the metric name first, matching `read_len_*` and `polya_*`. Also
-  reordered `polya_median`/`polya_mean` to `polya_mean`/`polya_median` in
-  `STATS_COLUMNS` (mean before median everywhere else). Column *values* are
-  unaffected, only names/order — `mean_qscore_template`, the actual `dorado
-  summary` TSV column this is computed from, is untouched (that name is
-  Dorado's, not ours).
 - Poly(A) tail estimation is no longer a dedicated, RNA-only test case.
-  `run_tests.py` no longer builds an `rna_<library>_poly_a` case; instead,
-  `--poly_a` (new flag, mirroring `run_compare_models.py`'s) adds
-  `--estimate-poly-a` to **every** case in the matrix — DNA and RNA both,
-  every variant/mods/barcode-kit/no-trim combination — since poly(A) tail
-  estimation isn't RNA-only, it also works on cDNA. `run_compare_models.py`'s
-  `--poly_a` similarly dropped its `analyte == "RNA"` gate (previously
-  ignored, with a warning, for DNA tests) and now applies to any `--test`.
-  `TestCase` gained an `estimate_poly_a` field (already added for the fix
-  below) that both scripts set per case instead of a fixed single case.
-
-### Fixed
-
-- `polya_median`/`polya_mean` weren't populated in `stats_<version>.csv` for
-  `run_compare_models.py --poly_a` cases, even though `--estimate-poly-a`
-  was in the executed command and Dorado's log confirmed poly(A) was
-  estimated. Root cause: `aggregate.build_case_row` decided whether to read
-  the `pt:i:` tag by checking `case["test_name"].endswith("_poly_a")` —
-  true for `run_tests.py`'s dedicated `rna_<library>_poly_a` case, but
-  `run_compare_models.py`'s cases are named after the version tag being
-  compared (e.g. `v6.0.0`), so the check silently never matched. Fixed by
-  adding an explicit `TestCase.estimate_poly_a` field, set at case
-  construction and recorded in `manifest.json`, that `build_case_row`/
-  `build_per_barcode_rows` read instead of inferring from the name.
-
-### Added
-
-- `polya_min`/`polya_max` columns alongside the existing `polya_median`/
-  `polya_mean` in `stats_<version>.csv` (and the per-barcode CSV) — same
-  source (`stats.polya_stats`, per-read `pt:i:` BAM tag via `pysam`).
-  `stats.collect_polya_lengths` now excludes reads with `pt:i:0` (a tail
-  Dorado didn't call — see `polya_tails_not_called` above — not an observed
-  zero-length tail) from all four `polya_*` stats, so an uncalled read can't
-  drag mean/median/min down.
-- `polya_tails_called`, `polya_tails_not_called`, `polya_avg_length_log`
-  columns in `stats_<version>.csv` (and the per-barcode CSV): Dorado's own
-  run-level poly(A) call-rate summary, parsed from its log line (e.g.
-  `PolyA tails called 112832, not called 13433, avg tail length 96`) via
-  the new `stats.extract_polya_log_stats`, same pattern as
-  `resolved_models`/`gpu`. Distinct from `polya_mean`/`polya_median`, which
-  are computed per-read from the `pt:i:` BAM tag.
-
-- `run_compare_models.py`: compares specific, pinned Dorado model versions
-  (not speed aliases) for one basecalling test, against a single Dorado
-  executable — e.g. `dna_..._hac@v5.0.0` vs `dna_..._hac@v6.0.0`. Takes
-  `--test` (one of the 8 `{dna,rna}_{singleplex,multiplex}_simplex_{hac,sup}`
-  tests), `--models` (2+ full versioned model names, comma-separated), and
-  optional `--mods` (comma-separated codes applied to every model). A single
-  `--path_to_pod5`/`--kit_name` (not the dual `--path_to_dna_pod5`/
-  `--path_to_rna_pod5`/`--dna_kit`/`--rna_kit` of `run_tests.py`), since
-  `--test` already implies the analyte. Reuses `run_tests.py`'s per-case
-  isolation, logging, `manifest.json`, and `aggregate.py` stats CSV output
-  (`stats.get_qscore_threshold` now also recognizes a speed marker inside a
-  full pinned model name, not just a bare `hac`/`sup`/`fast` alias); writes
-  to `results_compare/<test>/<v1-v2-...>/`, never reusing an existing folder
-  (same `_1`/`_2` suffixing as `run_tests.py`).
-  - `--mods`: verified against v2.1.0, a bare mod code appended to an
-    already-pinned `model@version` doesn't resolve the way it does against a
-    floating `hac`/`sup` alias (`'<code>' is not a recognised model name`,
-    even for a valid, non-conflicting code). Each code is now resolved to
-    its highest available fully-qualified mod model name *for that exact
-    pinned base model* (via `dorado download --list`) and passed through
-    `--modified-bases-models` (new `dorado_commands`/`runner.basecaller_builder`
-    parameter) instead of the model-complex comma form. A model missing a
-    requested mod is skipped (warned), not a hard failure. Two codes that
-    look like they target the same canonical base (e.g. `5mC_5hmC` +
-    `5mCG_5hmCG`, both C) are now rejected upfront with a clear error,
-    before anything runs.
-  - `--poly_a`: adds `--estimate-poly-a` to the basecall for that comparison
-    run. Only meaningful for RNA tests (poly(A) tail length is written to
-    the `pt:i:` BAM tag); ignored, with a warning, if `--test` is a DNA
-    test.
-- `tests/test_run_compare_models.py`: `unittest`-based coverage of
-  `run_compare_models.py`'s argument parsing/validation (no real Dorado
-  executable or POD5 data needed).
-- `--dry_run` (both `run_tests.py` and `run_compare_models.py`): builds the
-  matrix/case list and renders every case's dorado command(s) without
-  launching dorado. Reuses the normal `manifest.json`/logs/stats-CSV
-  pipeline unchanged — each case gets `status: "dry_run"`,
-  `wall_time_sec: null`, and its would-be command(s) written to the usual
-  `logs/<test_name>.log`; `aggregate.py` already treats any non-`"success"`
-  status as an all-NaN stats row, so the stats CSV comes out with no
-  special-casing needed. `manifest.json` also gets a top-level `"dry_run"`
-  boolean. A demux command that depends on a prior basecall step's actual
-  output (recursive bam discovery) can't be fully resolved without that
-  step having run — `runner.dry_run_case` renders it with a placeholder for
-  the unresolved part (`[unresolved in --dry_run -- ...]`) instead of
-  treating it as a failure. `n_failed`'s success/failed accounting in both
-  scripts' `main()` now excludes `dry_run` results, so `--strict` doesn't
-  misfire on a dry run.
-- `--dna_mod` (`run_tests.py`): mirrors `--rna_mod`, but for the DNA
-  `*_mods_hac`/`*_mods_sup` cases — `;`-separated groups, each a
-  comma-separated set of mods, added alongside (not replacing) the
-  `config/mods.yaml` DNA default. Unlike RNA's `_2Ome*`-suffixed sup-only
-  mods, DNA's alternates (`4mC_5mC`, `5mC_5hmC`) exist for both `hac` and
-  `sup`, so one group covers both variants. `config/mods.yaml` documents the
-  recipe (`--dna_mod 4mC_5mC,6mA;5mC_5hmC,6mA`) — all three C-context DNA
-  mods (`4mC_5mC`, `5mC_5hmC`, `5mCG_5hmCG`) act on the same canonical base,
-  so at most one per group, paired with a non-C mod like `6mA`.
-- `--poly_a` (`run_compare_models.py`): adds `--estimate-poly-a` to the
-  basecall for that comparison run. Only meaningful for RNA tests; ignored,
-  with a warning, if `--test` is a DNA test.
-- `config/mods.yaml`: documented (as comments, not new defaults) two fuller
-  RNA mod combos verified present in the `dorado download --list` catalog
-  at v5.2.0/v5.3.0/v6.0.0 — `m5C,m6A_DRACH,pseU` / `m5C,inosine_m6A,pseU`
-  for `hac`, and the `_2OmeC`/`_2OmeU`/`2OmeG`-suffixed sup equivalents for
-  `sup`. `m6A_DRACH` and `inosine_m6A(_2OmeA)` both act on adenine and can
-  never be combined, and are deliberately kept as two separate options
-  rather than picked for the baked-in default (`compatible_mods` stays
-  `m6A` for RNA / `5mCG_5hmCG,6mA` for DNA) — test either via `--rna_mod`.
-- `gpu` column in `stats_<version>.csv`: the GPU(s) Dorado reported using
-  (e.g. `Quadro GV100`; `;`-joined for `--device cuda:all` with more than
-  one), parsed from each case's log via `stats.extract_gpu_devices` (looks
-  for `cuda:<n> - <name>` lines) — same pattern as `resolved_models`. Blank
-  on a CPU-only run, since Dorado prints no such line then.
+  `--poly_a` (both scripts) adds `--estimate-poly-a` to every case instead
+  — DNA and RNA both, since it also works on cDNA, not just direct RNA —
+  tracked via an explicit `TestCase.estimate_poly_a` field rather than a
+  `rna_<library>_poly_a` name.
+- Standardized `stats_<version>.csv` column names: `mean_qscore`/
+  `median_qscore` → `qscore_mean`/`qscore_median`, and the `polya_*`
+  columns reordered to mean-before-median — both now match the
+  metric-name-first convention already used by `read_len_*`.
 
 ## [1.0.0] - 2026-08-04
 

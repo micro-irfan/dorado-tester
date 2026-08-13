@@ -1,0 +1,18 @@
+# Two-step pipeline: align basecalled reads to a reference, then call
+# small variants.
+#
+# Run with:
+#   python run_custom_command.py --path_to_dorado <path/to/dorado> \
+#     --command examples/align_then_smallvar.txt \
+#     --output_dir results_custom/align_then_smallvar
+#
+# Adjust paths/flags for your setup -- check `dorado aligner --help` and
+# `dorado smallvar --help` for this Dorado version's exact options
+# (unverified in this repo; only basecaller and aligner flags have been
+# verified so far -- see CLAUDE.md). Note: since the pipeline's last step
+# here is `smallvar`, not `basecaller`/`aligner`, run_custom_command.py
+# will not attempt to compute stats.csv for this one -- log + manifest only.
+
+dorado aligner reference.mmi reads.bam -o /tmp/aligned
+
+dorado smallvar /tmp/aligned -o /tmp/variants

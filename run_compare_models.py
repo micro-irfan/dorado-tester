@@ -250,10 +250,18 @@ def main(argv: list[str] | None = None) -> int:
         len(args.models), args.test,
         ", ".join(f"{m} ({t})" for m, t in zip(args.models, version_tags)),
     )
-    catalog_text = None
+    # Fetched unconditionally (not just when --mods is given): also used
+    # below to warn if a --models entry isn't a real model for this Dorado
+    # version at all, e.g. a speed/version combination that was never
+    # released (verified: dna_r10.4.1_e8.2_400bps_sup@v6.0.0 doesn't exist --
+    # v6.0.0 only shipped hac). _validate_models only checks the name *looks*
+    # right (analyte prefix + speed marker), not that it's real, so without
+    # this a bad model name would otherwise only surface once the actual
+    # basecall attempt fails, which is slower and buries the real reason in
+    # Dorado's own error text.
+    catalog_text = runner.get_available_mods_output(dorado_path, models_directory) or ""
     if args.mods:
         logger.info("Mods applied to every model (if available): %s", ", ".join(args.mods))
-        catalog_text = runner.get_available_mods_output(dorado_path, models_directory) or ""
 
     base_dir = args.output_dir / args.test
     output_root = runner.resolve_output_root(base_dir, version_label)
@@ -272,6 +280,15 @@ def main(argv: list[str] | None = None) -> int:
 
     cases = []
     for model, tag in zip(args.models, version_tags):
+        if catalog_text and model not in catalog_text:
+            logger.warning(
+                "%s: %s not found in `dorado download --list` for this Dorado version -- "
+                "this pinned model/version may not exist (e.g. not every speed was released "
+                "for every version). Proceeding anyway; if it truly doesn't exist, Dorado "
+                "will fail to download/parse it and this case will be marked failed.",
+                tag, model,
+            )
+
         modified_bases_models = None
         if args.mods:
             resolved_mods, missing_mods = _resolve_mod_models(model, args.mods, catalog_text)

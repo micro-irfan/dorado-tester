@@ -390,7 +390,7 @@ python run_compare_models.py \
 |---|---|---|
 | `--path_to_dorado` | yes | Path to the Dorado executable (kept constant across the comparison). |
 | `--test` | no | One of `dna_singleplex_simplex_hac`, `dna_singleplex_simplex_sup`, `dna_multiplex_simplex_hac`, `dna_multiplex_simplex_sup`, and the `rna_*` equivalents. Default `dna_singleplex_simplex_hac`. |
-| `--models` | yes | 2+ full versioned model names, comma-separated. Must match `--test`'s analyte (`dna`/`rna`) and speed (`_hac@`/`_sup@`) — checked before anything runs. If a model doesn't actually exist, Dorado itself errors when asked to fetch/load it; that failure is recorded and the run moves on to the next model, same as any other case. |
+| `--models` | yes | 2+ full versioned model names, comma-separated. Must match `--test`'s analyte (`dna`/`rna`) and speed (`_hac@`/`_sup@`) — checked before anything runs, but this is just a name-shape check, not an existence check (e.g. `dna_..._sup@v6.0.0` looks valid but was never actually released — v6.0.0 only shipped `hac`). Each model is also checked against `dorado download --list` for this Dorado version at runtime and, if not found, a warning is logged before it runs — but it still runs; if it truly doesn't exist, Dorado itself errors when asked to fetch/load it, and that failure is recorded and the run moves on to the next model, same as any other case. |
 | `--mods` | no | Comma-separated mod codes applied to every model in `--models`, e.g. `5mCG_5hmCG,6mA`. Each is resolved to the highest available fully-qualified mod model name *for that exact pinned base model* (via `dorado download --list`) and passed through `--modified-bases-models` — a bare code appended to a pinned `model@version` doesn't auto-resolve the way it does for a floating `hac`/`sup` alias, so this script does that resolution itself. A model is never skipped over mods: if only some of the requested codes resolve for that exact pinned model, it basecalls with just the ones that did (warned); if none resolve, it basecalls with no mods at all (also warned) — either way it still runs and gets a row, so the comparison stays complete across all requested versions. Two codes that look like they act on the same canonical base (e.g. `5mC_5hmC` + `5mCG_5hmCG`, both C) are rejected upfront with a clear error, before anything runs — best-effort, not exhaustive (can't catch e.g. the mod-model architecture-type conflicts noted in [CLAUDE.md](CLAUDE.md)). |
 | `--path_to_pod5` | yes | Directory containing `multiplex/`/`singleplex/`, same layout as `run_tests.py`. One flag, not two — `--test` already says which analyte, so which one it needs (and validates) follows from that. |
 | `--kit_name` | no | Only used if `--test` is a multiplex test (adds `--kit-name`, same as `run_tests.py`). One flag, not `--dna_kit`/`--rna_kit` — defaults to `SQK-NBD114-24` for DNA tests / `SQK-DRB004-24` for RNA tests if omitted. |
@@ -416,6 +416,75 @@ dependency to install):
 ```
 python tests/test_run_compare_models.py
 ```
+
+## Running an arbitrary custom command
+
+`run_tests.py` and `run_compare_models.py` both cover a fixed matrix.
+`run_custom_command.py` is the escape hatch for anything outside that —
+exercising a new subcommand, a one-off flag combination, or a Dorado
+feature that isn't (yet) wired into either matrix, without having to add a
+test case for it first.
+
+```
+python run_custom_command.py \
+  --path_to_dorado /opt/dorado-2.0.1/bin/dorado \
+  --command "basecaller hac /data/pod5 -o /tmp/basecall_out" \
+  --output_dir ./results_custom/my_run
+
+# or a short pipeline, from a file (see examples/):
+python run_custom_command.py \
+  --path_to_dorado /opt/dorado-2.0.1/bin/dorado \
+  --command examples/basecaller_then_trim.txt \
+  --output_dir ./results_custom/basecall_then_trim
+```
+
+| Argument | Required | Meaning |
+|---|---|---|
+| `--path_to_dorado` | yes | Path to the Dorado executable. |
+| `--command` | yes | Either a single command string, e.g. `"aligner ref.mmi reads.bam -o /tmp/aligned"`, or a path to a text file listing one or more commands — whichever `--command` resolves to an existing file is read as a file, otherwise it's a literal command string. Each command is run directly (not through a shell — no pipes/redirects). Any flags (`--kit-name`, `-x`, `--models-directory`, ...) belong in the string/file; the wrapper doesn't add anything. |
+| `--output_dir` | yes | Where the wrapper writes its own `logs/<subcommand[+subcommand...]>.log`, `manifest.json`, and (if applicable) `stats.csv` — separate from wherever the (last) command's own `-o`/`--output-dir` points, which is dorado's actual output location and what gets scanned for `*.bam`. Never reused — an existing directory gets a fresh `_1`, `_2`, ... suffix, same as the other scripts. |
+| `--strict` | no | Exit non-zero if the command (or, for a pipeline, any step of it) failed. |
+
+### `--command` as a file
+
+A file lists one or more commands, run in sequence as steps of a single
+pipeline (stopping at the first failed step, same as e.g.
+`dna_multiplex_barcode_kit`'s basecall-then-demux case in `run_tests.py`).
+Rules:
+
+- A command can span multiple lines: a line ending in `\` continues onto
+  the next (joined with a space); it ends at the first line that doesn't.
+  A single-line command needs no `\` at all.
+- Blank lines and `#` comment lines are ignored — useful for separating
+  and annotating commands, but not required; two commands on consecutive,
+  non-continued lines are already treated as separate.
+- The literal word `dorado` at the start of a command is replaced with
+  `--path_to_dorado`'s value — write commands the way you'd normally type
+  them (`dorado basecaller ...`), or omit it, either works.
+
+See [`examples/`](examples/) for three sample two-step pipelines
+(`basecaller_then_trim.txt`, `basecaller_then_correct.txt`,
+`align_then_smallvar.txt`) demonstrating this syntax — their exact `trim`/
+`correct`/`smallvar` flags are illustrative, not verified against a real
+Dorado build (unlike `basecaller`/`aligner`, see [CLAUDE.md](CLAUDE.md)),
+so check `dorado <subcommand> --help` for your version before relying on
+them.
+
+### Stats
+
+If the **last** command in the pipeline is `basecaller` or `aligner` and
+the whole pipeline exits successfully, the wrapper recursively searches
+that last command's own `-o`/`--output-dir` directory (or `--output_dir`
+if it didn't specify one) for `*.bam` and writes a one-row `stats.csv` from
+them (read/base counts, N50, qscore stats — same fields as
+`stats_<version>.csv`, minus the test-matrix columns). For `basecaller`,
+the model is read from that command's first positional argument to pick a
+qscore pass-threshold; if that's not a recognized `hac`/`sup`/`fast` name
+(or the last command is `aligner`, which has no model), `num_reads_passed`/
+`num_bases_passed` come back blank rather than guessing a threshold. Any
+other last-step subcommand (`demux`, `duplex`, `download`, `summary`,
+`trim`, `correct`, `smallvar`, ...) just gets the log + manifest — their
+output shape isn't verified in this repo, so no stats are attempted.
 
 This project is licensed under the GNU General Public License v3.0.
 See [LICENSE](LICENSE) for the full text.

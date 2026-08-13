@@ -248,6 +248,8 @@ Failed test cases still get a row (with `status=failed` and NaN stats) so the co
 ├── run_tests.py            # CLI entry point (argparse), orchestrates the matrix
 ├── download_pod5.py        # fetches sample POD5s from ont-open-data into the expected layout
 ├── run_compare_models.py   # compares pinned model versions (not Dorado builds) for one test
+├── run_custom_command.py   # runs an arbitrary one-off dorado command (or short pipeline) outside the fixed matrices
+├── examples/                # sample --command pipeline files for run_custom_command.py
 ├── dorado_tester/
 │   ├── __init__.py
 │   ├── cli.py              # argument parsing + input validation

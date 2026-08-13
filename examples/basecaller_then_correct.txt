@@ -1,0 +1,16 @@
+# Two-step pipeline: basecall, then run read correction (e.g. ahead of a
+# genome assembly). Demonstrates a plain single-line-per-command file (no
+# backslash continuation needed).
+#
+# Run with:
+#   python run_custom_command.py --path_to_dorado <path/to/dorado> \
+#     --command examples/basecaller_then_correct.txt \
+#     --output_dir results_custom/basecaller_then_correct
+#
+# Adjust paths/flags for your setup -- check `dorado correct --help` for
+# this Dorado version's exact options (unverified in this repo; only
+# basecaller and aligner flags have been verified so far -- see CLAUDE.md).
+
+dorado basecaller sup /data/pod5 -o /tmp/basecall_out
+
+dorado correct /tmp/basecall_out -o /tmp/corrected_reads.fasta
