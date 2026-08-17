@@ -6,10 +6,13 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
-- `run_custom_command.py`: runs an arbitrary `dorado` command, or a short
-  pipeline of them, for anything outside `run_tests.py`'s and
-  `run_compare_models.py`'s fixed matrices. `--command` takes either a
-  literal command string or a path to a text file listing one or more
+- `run_custom_command.py`: an escape hatch for testing Dorado functionality
+  that isn't (yet) built into `run_tests.py`'s or `run_compare_models.py`'s
+  fixed matrices — Dorado's CLI surface evolves faster than any fixed
+  matrix can track every subcommand/flag combination, so this runs
+  whatever `dorado` command you give it (or a short pipeline of them).
+  `--command` takes either a literal command string or a path to a text
+  file listing one or more
   commands, run in sequence (stopping at the first failure) — a file
   supports `\`-continued multi-line commands, `#` comments, and a literal
   `dorado` token that gets replaced with `--path_to_dorado` (see
