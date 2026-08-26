@@ -428,7 +428,7 @@ test case for it first.
 ```
 python run_custom_command.py \
   --path_to_dorado /opt/dorado-2.0.1/bin/dorado \
-  --command "basecaller hac /data/pod5 -o /tmp/basecall_out" \
+  --command "basecaller hac /data/pod5" \
   --output_dir ./results_custom/my_run
 
 # or a short pipeline, from a file (see examples/):
@@ -441,8 +441,8 @@ python run_custom_command.py \
 | Argument | Required | Meaning |
 |---|---|---|
 | `--path_to_dorado` | yes | Path to the Dorado executable. |
-| `--command` | yes | Either a single command string, e.g. `"aligner ref.mmi reads.bam -o /tmp/aligned"`, or a path to a text file listing one or more commands — whichever `--command` resolves to an existing file is read as a file, otherwise it's a literal command string. Each command is run directly (not through a shell — no pipes/redirects). Any flags (`--kit-name`, `-x`, `--models-directory`, ...) belong in the string/file; the wrapper doesn't add anything. |
-| `--output_dir` | yes | Where the wrapper writes its own `logs/<subcommand[+subcommand...]>.log`, `manifest.json`, and (if applicable) `stats.csv` — separate from wherever the (last) command's own `-o`/`--output-dir` points, which is dorado's actual output location and what gets scanned for `*.bam`. Never reused — an existing directory gets a fresh `_1`, `_2`, ... suffix, same as the other scripts. |
+| `--command` | yes | Either a single command string, e.g. `"aligner ref.mmi reads.bam"`, or a path to a text file listing one or more commands — whichever `--command` resolves to an existing file is read as a file, otherwise it's a literal command string. Each command is run directly (not through a shell — no pipes/redirects). Any flags (`--kit-name`, `-x`, `--models-directory`, ...) belong in the string/file. A `basecaller`/`aligner`/`demux` step that doesn't specify its own `-o`/`--output-dir` gets `--output_dir` appended to it automatically (see below); everything else the wrapper leaves untouched. |
+| `--output_dir` | yes | Where the wrapper writes its own `logs/<subcommand[+subcommand...]>.log`, `manifest.json`, and (if applicable) `stats.csv`. Also used as dorado's own output directory for any `basecaller`/`aligner` (`-o`) or `demux` (`--output-dir`) step in `--command` that doesn't already specify one, so the two don't need to be given separately. A step that does supply its own `-o`/`--output-dir` is left alone and that path is used instead (e.g. to send one step of a pipeline somewhere else). Never reused — an existing directory gets a fresh `_1`, `_2`, ... suffix, same as the other scripts. |
 | `--strict` | no | Exit non-zero if the command (or, for a pipeline, any step of it) failed. |
 
 ### `--command` as a file
@@ -474,8 +474,9 @@ them.
 
 If the **last** command in the pipeline is `basecaller` or `aligner` and
 the whole pipeline exits successfully, the wrapper recursively searches
-that last command's own `-o`/`--output-dir` directory (or `--output_dir`
-if it didn't specify one) for `*.bam` and writes a one-row `stats.csv` from
+that last command's own `-o`/`--output-dir` directory — `--output_dir` by
+default, or wherever it was pointed instead — for `*.bam` and writes a
+one-row `stats.csv` from
 them (read/base counts, N50, qscore stats — same fields as
 `stats_<version>.csv`, minus the test-matrix columns). For `basecaller`,
 the model is read from that command's first positional argument to pick a

@@ -41,6 +41,14 @@ STATS_CAPABLE_SUBCOMMANDS = {"basecaller", "aligner"}
 # subcommands (basecaller/aligner use -o, demux uses --output-dir).
 _OUTPUT_FLAGS = {"-o", "--output-dir"}
 
+# Which output-dir flag each subcommand takes, for subcommands that have
+# one at all (summary/download/... don't and are left alone).
+_SUBCOMMAND_OUTPUT_FLAG = {
+    "basecaller": "-o",
+    "aligner": "-o",
+    "demux": "--output-dir",
+}
+
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -63,11 +71,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--output_dir", required=True, type=Path,
-        help="Where this wrapper writes its own log/manifest.json/stats.csv. Separate "
-             "from wherever the (last) command's own -o/--output-dir points, if it has "
-             "one -- that's dorado's actual output location, and is what gets scanned "
-             "for *.bam when computing stats. Never reused -- an existing directory "
-             "gets a fresh _1, _2, ... suffix, same as the other scripts.",
+        help="Where this wrapper writes its own log/manifest.json/stats.csv. Also used "
+             "as dorado's own output directory (-o for basecaller/aligner, --output-dir "
+             "for demux) for any command in --command that doesn't already specify one "
+             "-- so the two don't need to be given separately. A command that does "
+             "supply its own -o/--output-dir is left alone and that path is used "
+             "instead (e.g. to send a pipeline's steps to different places). Never "
+             "reused -- an existing directory gets a fresh _1, _2, ... suffix, same as "
+             "the other scripts.",
     )
     parser.add_argument(
         "--strict", action="store_true",
@@ -148,6 +159,20 @@ def _extract_basecaller_model(tokens: list[str]) -> str | None:
     return None
 
 
+def _inject_output_dir(tokens: list[str], output_dir: Path) -> list[str]:
+    """tokens = [dorado_path, subcommand, ...args]. If the subcommand takes
+    an output-dir flag and the command didn't already supply one (either
+    spelling), append it pointing at --output_dir -- so a --command that
+    omits -o/--output-dir writes its dorado output into the same directory
+    this wrapper is already using for the log/manifest/stats, instead of
+    silently falling back to dorado's default (stdout)."""
+    subcommand = tokens[1] if len(tokens) > 1 else None
+    flag = _SUBCOMMAND_OUTPUT_FLAG.get(subcommand)
+    if flag is None or _extract_flag_value(tokens, _OUTPUT_FLAGS) is not None:
+        return tokens
+    return [*tokens, flag, str(output_dir)]
+
+
 def _static_command_builder(cmd: list[str]):
     return lambda _out_dir, _cmd=cmd: _cmd
 
@@ -157,7 +182,15 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     dorado_path = str(args.path_to_dorado)
 
-    resolved_commands = [_resolve_dorado_token(tokens, dorado_path) for tokens in args.commands]
+    output_root = runner.resolve_output_root(args.output_dir.parent, args.output_dir.name)
+    output_root.mkdir(parents=True, exist_ok=True)
+    if output_root != args.output_dir:
+        logger.info("%s already exists; writing this run to %s instead", args.output_dir, output_root)
+
+    resolved_commands = [
+        _inject_output_dir(_resolve_dorado_token(tokens, dorado_path), output_root)
+        for tokens in args.commands
+    ]
     # Each resolved command is [dorado_path, subcommand, ...args]; index 1
     # is the subcommand throughout.
     subcommands = [cmd[1] for cmd in resolved_commands]
@@ -165,11 +198,6 @@ def main(argv: list[str] | None = None) -> int:
 
     dorado_version = version.get_dorado_version(dorado_path)
     logger.info("Dorado version: %s", dorado_version.raw)
-
-    output_root = runner.resolve_output_root(args.output_dir.parent, args.output_dir.name)
-    output_root.mkdir(parents=True, exist_ok=True)
-    if output_root != args.output_dir:
-        logger.info("%s already exists; writing this run to %s instead", args.output_dir, output_root)
 
     case = runner.TestCase(
         analyte="CUSTOM", library="custom", test_name=test_name,
