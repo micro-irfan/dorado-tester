@@ -247,6 +247,7 @@ Failed test cases still get a row (with `status=failed` and NaN stats) so the co
 ├── README.md
 ├── run_tests.py            # CLI entry point (argparse), orchestrates the matrix
 ├── download_pod5.py        # fetches sample POD5s from ont-open-data into the expected layout
+├── convert_fast5_to_pod5.py # converts FAST5 -> POD5 via the `pod5` CLI
 ├── run_compare_models.py   # compares pinned model versions (not Dorado builds) for one test
 ├── run_custom_command.py   # runs an arbitrary one-off dorado command (or short pipeline) outside the fixed matrices
 ├── examples/                # sample --command pipeline files for run_custom_command.py
@@ -262,7 +263,7 @@ Failed test cases still get a row (with `status=failed` and NaN stats) so the co
 ├── config/
 │   └── mods.yaml
 ├── results/                # gitignored; per-version output trees
-└── requirements.txt        # pysam, pandas, pyyaml
+└── requirements.txt        # pysam, pandas, pyyaml, pod5
 └── tests/                  # to be added (expected summary file and bam)
 ```
 

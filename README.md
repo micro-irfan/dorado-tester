@@ -70,6 +70,33 @@ and checks both before downloading anything. Each category is synced
 independently (`aws s3 sync --no-sign-request ... --exclude '*' --include
 '<pattern>'`) — one category failing doesn't stop the others.
 
+### Converting FAST5 to POD5
+
+If you're starting from older FAST5 files instead, `convert_fast5_to_pod5.py`
+wraps the [`pod5`](https://pod5-file-format.readthedocs.io/) CLI (`pip
+install pod5`, or `pod5[fast5]` if your platform's build needs explicit
+FAST5 read support) to convert them:
+
+```
+python convert_fast5_to_pod5.py --input_dir ./fast5_data --output_dir ./pod5_data
+```
+
+| Argument | Meaning |
+|---|---|
+| `--input_dir` | Directory of `.fast5` files, searched recursively. |
+| `--output_dir` | Where to write `.pod5` output. |
+| `--merge` | Merge every input `.fast5` into a single `<output_dir>/converted.pod5`, instead of the default one `.pod5` per `.fast5` (mirroring `--input_dir`'s structure under `--output_dir`, via `pod5`'s `--output-one-to-one`) — the default is safer for a large FAST5 set than one big merged file. |
+| `--force` | Overwrite existing output `.pod5` file(s). |
+
+Unlike the `dorado` invocations elsewhere in this repo, the exact `pod5
+convert fast5` flags this wraps are taken from the `pod5` project's
+published docs, not verified against a real install here — if something
+doesn't match, check `pod5 convert fast5 --help` for your installed
+version. Whatever it writes to `--output_dir` still needs to land in the
+`multiplex/`/`singleplex/` layout `run_tests.py` expects (see
+[Input layout](#input-layout)) — this script doesn't do that sorting for
+you.
+
 ## Usage
 
 ```

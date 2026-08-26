@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented in this file.
 
+## Unreleased 
+
+### Added 
+
+- `convert_fast5_to_pod5.py`: converts a directory of FAST5 files to POD5
+  via the [`pod5`](https://pod5-file-format.readthedocs.io/) CLI
+  (`pip install pod5`), for feeding older FAST5 data into `run_tests.py`/
+  `run_compare_models.py` (which expect POD5, same as `download_pod5.py`'s
+  output). `--input_dir`/`--output_dir` plus `--merge` (single combined
+  `converted.pod5`, vs. the default one-`.pod5`-per-`.fast5` mirroring the
+  input structure via `pod5`'s `--output-one-to-one`) and `--force`. The
+  `pod5 convert fast5` flags it wraps are taken from `pod5`'s published
+  docs, not verified against a real install in this repo the way Dorado's
+  own commands are — check `pod5 convert fast5 --help` for your installed
+  version if something doesn't match.
+
 ## [1.1.0] - 2026-08-17
 
 ### Added
