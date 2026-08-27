@@ -84,6 +84,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--strict", action="store_true",
         help="Exit non-zero if the command (or, for a pipeline, any step of it) failed.",
     )
+    parser.add_argument(
+        "--overwrite", action="store_true",
+        help="If --output_dir already exists, delete and replace it instead of writing "
+             "to a fresh _1, _2, ... suffixed directory.",
+    )
     args = parser.parse_args(argv)
 
     if not args.path_to_dorado.is_file():
@@ -182,9 +187,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     dorado_path = str(args.path_to_dorado)
 
-    output_root = runner.resolve_output_root(args.output_dir.parent, args.output_dir.name)
+    existed_before = args.output_dir.exists()
+    output_root = runner.resolve_output_root(args.output_dir.parent, args.output_dir.name, args.overwrite)
+    if args.overwrite and existed_before:
+        logger.info("--overwrite given; replaced existing %s", args.output_dir)
     output_root.mkdir(parents=True, exist_ok=True)
-    if output_root != args.output_dir:
+    if not args.overwrite and output_root != args.output_dir:
         logger.info("%s already exists; writing this run to %s instead", args.output_dir, output_root)
 
     resolved_commands = [

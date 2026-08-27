@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import shlex
+import shutil
 import subprocess
 import time
 from dataclasses import dataclass, field
@@ -481,12 +482,23 @@ def write_manifest(
         json.dump(payload, fh, indent=2)
 
 
-def resolve_output_root(base_dir: Path, name: str) -> Path:
+def resolve_output_root(base_dir: Path, name: str, overwrite: bool = False) -> Path:
     """Never reuses an existing base_dir/name/ -- always picks a fresh
     name_1, name_2, ... instead, so one run's output can't get mixed into
     another's manifest.json/logs. Shared by run_tests.py (name = Dorado
-    version) and run_compare_models.py (name = model-version label)."""
+    version), run_compare_models.py (name = model-version label), and
+    run_custom_command.py.
+
+    With overwrite=True, base_dir/name is deleted first (if present) and
+    reused as-is instead of suffixed -- the caller asked to replace it, not
+    accumulate _1, _2, ... copies."""
     candidate = base_dir / name
+    if overwrite:
+        if candidate.is_dir():
+            shutil.rmtree(candidate)
+        elif candidate.exists():
+            candidate.unlink()
+        return candidate
     if not candidate.exists():
         return candidate
     i = 1

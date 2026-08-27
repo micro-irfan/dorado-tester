@@ -18,9 +18,12 @@ def main(argv: list[str] | None = None) -> int:
     dorado_version = version.get_dorado_version(dorado_path)
     logger.info("Dorado version: %s", dorado_version.raw)
 
-    output_root = runner.resolve_output_root(args.output_dir, dorado_version.safe)
+    existed_before = (args.output_dir / dorado_version.safe).exists()
+    output_root = runner.resolve_output_root(args.output_dir, dorado_version.safe, args.overwrite)
+    if args.overwrite and existed_before:
+        logger.info("--overwrite given; replaced existing results/%s", dorado_version.safe)
     output_root.mkdir(parents=True, exist_ok=True)
-    if output_root.name != dorado_version.safe:
+    if not args.overwrite and output_root.name != dorado_version.safe:
         logger.info(
             "results/%s already exists; writing this run to %s instead",
             dorado_version.safe, output_root.name,

@@ -192,6 +192,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Exit non-zero if any model failed.",
     )
     parser.add_argument(
+        "--overwrite", action="store_true",
+        help="If the output directory for this test/version-label already exists, delete "
+             "and replace it instead of writing to a fresh _1, _2, ... suffixed directory.",
+    )
+    parser.add_argument(
         "--dry_run", action="store_true",
         help="Render every model's dorado command(s) without launching dorado. Still writes "
              "manifest.json (status 'dry_run', wall_time_sec null) and per-case logs under "
@@ -264,9 +269,12 @@ def main(argv: list[str] | None = None) -> int:
         logger.info("Mods applied to every model (if available): %s", ", ".join(args.mods))
 
     base_dir = args.output_dir / args.test
-    output_root = runner.resolve_output_root(base_dir, version_label)
+    existed_before = (base_dir / version_label).exists()
+    output_root = runner.resolve_output_root(base_dir, version_label, args.overwrite)
+    if args.overwrite and existed_before:
+        logger.info("--overwrite given; replaced existing %s", base_dir / version_label)
     output_root.mkdir(parents=True, exist_ok=True)
-    if output_root.name != version_label:
+    if not args.overwrite and output_root.name != version_label:
         logger.info(
             "%s already exists; writing this run to %s instead",
             base_dir / version_label, output_root.name,
