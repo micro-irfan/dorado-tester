@@ -12,8 +12,9 @@ All notable changes to this project are documented in this file.
   `--pod5`, `--read_ids` (a single ID or a newline-delimited file),
   `--output`. Skips malformed IDs and logs any requested IDs not found,
   finishing with an `X/Y read IDs found` summary; refuses to overwrite an
-  existing `--output`. Uses the `pod5` package's Reader/Writer API,
-  unverified against a real install here (same caveat as below).
+  existing `--output`. Uses the `pod5` package's Reader/Writer API —
+  `Writer.add_read()` takes a `Read`, not the `ReadRecord` yielded by
+  `Reader.reads()`, so each match is converted via `ReadRecord.to_read()`.
 - `convert_fast5_to_pod5.py`: converts a directory of FAST5 files to POD5
   via the `pod5` CLI, for feeding older data into `run_tests.py`/
   `run_compare_models.py`. `--input_dir`/`--output_dir`, `--merge` (single

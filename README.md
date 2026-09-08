@@ -130,10 +130,11 @@ logged individually, e.g.:
 ```
 
 If none of the requested IDs are found, no output file is written and the
-script exits non-zero. Like `convert_fast5_to_pod5.py`, this uses the
+script exits non-zero. Uses the
 [`pod5`](https://pod5-file-format.readthedocs.io/) Python package's
-Reader/Writer API per its published docs, not verified against a real
-install in this repo.
+Reader/Writer API — note `Writer.add_read()` takes a plain `Read`, not the
+`ReadRecord` that `Reader.reads()` yields, so each match is converted with
+`ReadRecord.to_read()` first.
 
 ## Usage
 

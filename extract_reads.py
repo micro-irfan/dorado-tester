@@ -3,11 +3,10 @@
 merges them into a single new POD5 file -- e.g. to build a small repro/test
 POD5 from a handful of interesting read ids found during basecalling.
 
-Uses the `pod5` Python package's Reader/Writer API (documented at
-https://pod5-file-format.readthedocs.io/, "Sub-setting Reads"). Like
-convert_fast5_to_pod5.py's use of the `pod5` CLI, this isn't verified
-against a real install in this repo -- check the pod5 package's docs for
-your installed version if something doesn't match.
+Uses the `pod5` Python package's Reader/Writer API (see
+https://pod5-file-format.readthedocs.io/). Note Writer.add_read() takes a
+plain `Read`, not the `ReadRecord` that Reader.reads() yields -- convert
+with `ReadRecord.to_read()` first, or it raises TypeError.
 """
 
 from __future__ import annotations
@@ -110,7 +109,7 @@ def extract_reads(pod5_files: list[Path], requested_ids: list[str], output_path:
             with pod5.Reader(str(pod5_file)) as reader:
                 for read_record in reader.reads(selection=remaining, missing_ok=True):
                     read_id = str(read_record.read_id).lower()
-                    writer.add_read(read_record)
+                    writer.add_read(read_record.to_read())
                     found.add(read_id)
                     remaining.discard(read_id)
 
