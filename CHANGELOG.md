@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### Fixed
+
+- Pinned `pod5<0.3.47` in `requirements.txt`: 0.3.47 defaults to writing
+  POD5 "v6" (32-bit `channel` field in the read table), which a dorado
+  build whose bundled pod5 reader predates v6 support can't open —
+  `extract_reads.py` output failed with `Schema field 'channel' is
+  incorrect type: 'uint32'` even though the source POD5(s) it read from
+  opened fine. `Writer` always emits its installed version's current
+  schema regardless of the source files' schema, so this affects any
+  freshly-written POD5, not just `extract_reads.py`'s logic.
+
 ### Added
 
 - `count_reads.py`: counts reads in a `.pod5` file, or every `.pod5` file

@@ -136,6 +136,16 @@ Reader/Writer API — note `Writer.add_read()` takes a plain `Read`, not the
 `ReadRecord` that `Reader.reads()` yields, so each match is converted with
 `ReadRecord.to_read()` first.
 
+**Pin `pod5<0.3.47`** (see `requirements.txt`). 0.3.47 switched to writing
+POD5 "v6" by default, which widens the read-table's `channel` field to
+32-bit — a dorado build whose bundled pod5 reader predates v6 support then
+fails to open the output with `Schema field 'channel' is incorrect type:
+'uint32'` / `Failed to determine sequencing chemistry from data`, even
+though it opened the original source POD5(s) fine. This isn't a bug in
+`extract_reads.py`'s logic — `Writer` always emits its own installed
+version's current schema regardless of the source files' schema. If a
+future dorado build does support v6, this pin can be relaxed.
+
 ### Counting reads in POD5
 
 `count_reads.py` reports how many reads are in a `.pod5` file, or every

@@ -2,4 +2,4 @@ pysam
 pandas
 openpyxl
 pyyaml
-pod5
+pod5<0.3.47  # 0.3.47 defaults to writing POD5 v6 (32-bit 'channel' field); older dorado builds' bundled pod5 reader can't open that -- see README.md
