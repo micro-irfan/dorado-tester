@@ -6,6 +6,11 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- `count_reads.py`: counts reads in a `.pod5` file, or every `.pod5` file
+  under a directory (searched recursively) — logs a per-file count and a
+  final summed total. `--pod5`. Tries the `pod5` Reader's `num_reads`
+  (property or method) first, falling back to counting via `reader.reads()`
+  if that's not available on the installed version.
 - `extract_reads.py`: extracts reads by ID from POD5 file(s) (a single file
   or a directory, searched recursively) and merges them into one output
   POD5 — for building a small repro/test file from a handful of reads.

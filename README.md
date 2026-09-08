@@ -136,6 +136,33 @@ Reader/Writer API — note `Writer.add_read()` takes a plain `Read`, not the
 `ReadRecord` that `Reader.reads()` yields, so each match is converted with
 `ReadRecord.to_read()` first.
 
+### Counting reads in POD5
+
+`count_reads.py` reports how many reads are in a `.pod5` file, or every
+`.pod5` file under a directory (searched recursively):
+
+```
+python count_reads.py --pod5 ./pod5_data/dna/singleplex
+```
+
+| Argument | Required | Meaning |
+|---|---|---|
+| `--pod5` | yes | A single `.pod5` file, or a directory of `.pod5` files (searched recursively). |
+
+Logs one line per file with its read count, then a final summed total:
+
+```
+2026-09-08 18:10:02 [INFO] Found 2 .pod5 file(s) under ./pod5_data/dna/singleplex
+2026-09-08 18:10:02 [INFO] pod5_data/dna/singleplex/PAW70337_..._10.pod5: 4213 read(s)
+2026-09-08 18:10:03 [INFO] pod5_data/dna/singleplex/PAW70337_..._11.pod5: 4187 read(s)
+2026-09-08 18:10:03 [INFO] Total: 8400 read(s) across 2 file(s)
+```
+
+Uses the `pod5` Reader API's `num_reads` if the installed version exposes
+it (property or method), falling back to counting via `reader.reads()`
+otherwise — same not-fully-verified-against-a-real-install caveat as
+`extract_reads.py` above.
+
 ## Usage
 
 ```
