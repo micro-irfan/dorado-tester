@@ -97,6 +97,44 @@ version. Whatever it writes to `--output_dir` still needs to land in the
 [Input layout](#input-layout)) — this script doesn't do that sorting for
 you.
 
+### Extracting specific reads from POD5
+
+`extract_reads.py` pulls a chosen set of reads out of one or more POD5
+files (by read ID) and merges them into a single new POD5 file — e.g. to
+build a small repro/test POD5 from a handful of interesting reads found
+during basecalling, without shipping the whole source dataset:
+
+```
+python extract_reads.py \
+  --pod5 ./pod5_data/dna/singleplex \
+  --read_ids read_ids.txt \
+  --output ./repro.pod5
+```
+
+| Argument | Required | Meaning |
+|---|---|---|
+| `--pod5` | yes | A single `.pod5` file, or a directory of `.pod5` files (searched recursively). |
+| `--read_ids` | yes | Either a single read ID, or a path to a text file listing read IDs, one per line. |
+| `--output` | yes | Path to write the merged output `.pod5` file. Refuses to overwrite an existing file — pick a different path or remove it first. |
+
+Read IDs are validated as UUIDs and de-duplicated case-insensitively before
+searching; malformed ones are skipped with a warning rather than sent to
+`pod5`. Every `.pod5` file under `--pod5` is scanned (stopping early once
+every requested ID has been found), and any IDs not found anywhere are
+logged individually, e.g.:
+
+```
+2026-09-04 10:02:15 [WARNING] 1 read ID(s) not found:
+2026-09-04 10:02:15 [WARNING]   0000173c-bf67-44e7-9a9c-1ad0bc728e74
+2026-09-04 10:02:15 [INFO] 4/5 read IDs found. Output written to ./repro.pod5
+```
+
+If none of the requested IDs are found, no output file is written and the
+script exits non-zero. Like `convert_fast5_to_pod5.py`, this uses the
+[`pod5`](https://pod5-file-format.readthedocs.io/) Python package's
+Reader/Writer API per its published docs, not verified against a real
+install in this repo.
+
 ## Usage
 
 ```
