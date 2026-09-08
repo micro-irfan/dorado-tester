@@ -49,6 +49,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Exit non-zero if any test case failed.",
     )
     parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="If results/<version>/ already exists, delete and replace it instead of "
+             "writing to a fresh results/<version>_1/, _2/, ... Off by default so one "
+             "run's manifest.json/logs can never overwrite another's.",
+    )
+    parser.add_argument(
         "--ignore",
         nargs="+",
         default=None,
